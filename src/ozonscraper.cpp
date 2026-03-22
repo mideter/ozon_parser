@@ -159,6 +159,8 @@ void OzonScraper::start(const QUrl& url, int minPoints, int maxPoints)
     elapsedTimer_.start();
 
     QWebEngineProfile* profile = QWebEngineProfile::defaultProfile();
+    profile->setHttpUserAgent(QStringLiteral(
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"));
     page_ = new QWebEnginePage(profile, this);
     connect(page_, &QWebEnginePage::loadFinished, this, &OzonScraper::onLoadFinished);
 
@@ -184,7 +186,26 @@ void OzonScraper::onLoadFinished(bool ok)
         return;
 
     if (!ok) {
-        finishWithError(QStringLiteral("Не удалось загрузить страницу."));
+        page_->runJavaScript(QStringLiteral(
+            "(function(){var t=document.title||'';var b=document.body?document.body.innerText.substring(0,400):'';"
+            "return JSON.stringify({title:t,bodySnippet:b});})()"),
+            [this](const QVariant& v) {
+                QString errMsg = QStringLiteral("Не удалось загрузить страницу.");
+                if (!v.toString().isEmpty()) {
+                    QJsonParseError err;
+                    QJsonDocument doc = QJsonDocument::fromJson(v.toString().toUtf8(), &err);
+                    if (err.error == QJsonParseError::NoError && doc.isObject()) {
+                        QString title = doc.object().value(QLatin1String("title")).toString();
+                        if (title.contains(QLatin1String("Доступ ограничен"))) {
+                            errMsg = QStringLiteral(
+                                "Ozon ограничивает доступ с вашей сети. Попробуйте: отключить VPN, "
+                                "подключиться к другой сети (Wi‑Fi/мобильный интернет) или перезагрузить роутер.");
+                        }
+                    }
+                }
+                if (running_)
+                    finishWithError(errMsg);
+            });
         return;
     }
 
