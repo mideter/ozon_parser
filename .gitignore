@@ -1,0 +1,11 @@
+build/
+*.o
+*.a
+*.so
+ozon_cpp
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.qm
+.qmake.stash
