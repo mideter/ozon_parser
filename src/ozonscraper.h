@@ -4,11 +4,10 @@
 
 #include <QElapsedTimer>
 #include <QObject>
-#include <QTimer>
+#include <QProcess>
 #include <QSet>
 #include <QUrl>
 #include <QVector>
-#include <QWebEnginePage>
 
 
 class OzonScraper : public QObject
@@ -30,11 +29,14 @@ signals:
     void finishedWithError(const QString& message);
 
 private slots:
-    void onLoadFinished(bool ok);
-    void onScrollAndExtract();
-    void onExtractResult(const QVariant& result);
+    void onProcessStdout();
+    void onProcessFinished(int exitCode, QProcess::ExitStatus status);
 
 private:
+    QString resolveFetchScriptPath() const;
+    void appendStdout(const QByteArray& chunk);
+    void handleJsonLine(const QByteArray& line);
+    void onExtractResult(const QByteArray& jsonArrayUtf8);
     void finishWithError(const QString& message);
     void finishWithSuccess();
     QString formatElapsed(qint64 ms) const;
@@ -42,14 +44,9 @@ private:
     QVector<Product> computeTop50(const QVector<Product>& all) const;
 
     static constexpr int UPDATE_TABLE_EVERY_N = 15;
-    static constexpr int EXTRA_WAIT_MS = 500;
-    static const char* const JS_WAIT_PRODUCTS;
-    static const char* const JS_EXTRACT_PRODUCTS;
-    static const char* const JS_SCROLL;
-    static const char* const JS_GET_HEIGHT;
 
-    QWebEnginePage* page_ = nullptr;
-    QTimer* scrollTimer_ = nullptr;
+    QProcess* process_ = nullptr;
+    QByteArray stdoutBuffer_;
     QElapsedTimer elapsedTimer_;
     bool running_ = false;
 
@@ -59,6 +56,5 @@ private:
     QSet<QString> seenUrls_;
     QVector<Product> allProducts_;
     int lastTableCount_ = 0;
-    int lastHeight_ = 0;
     int lastPrice_ = 0;
 };

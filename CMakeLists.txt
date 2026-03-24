@@ -11,7 +11,7 @@ set(CMAKE_AUTOUIC ON)
 
 add_compile_options(-Wall -Wextra -Wpedantic)
 
-find_package(Qt5 REQUIRED COMPONENTS Quick QuickControls2 WebEngine WebEngineWidgets Widgets)
+find_package(Qt5 REQUIRED COMPONENTS Quick QuickControls2 Widgets)
 
 set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
@@ -29,8 +29,6 @@ add_executable(ozon_cpp
 target_link_libraries(ozon_cpp PRIVATE
     Qt5::Quick
     Qt5::QuickControls2
-    Qt5::WebEngine
-    Qt5::WebEngineWidgets
     Qt5::Widgets
 )
 

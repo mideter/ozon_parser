@@ -1,18 +1,32 @@
 # Ozon Scraper (Qt)
 
-Парсер товаров Ozon на чистом Qt без Python. Использует Qt WebEngine (Chromium) для рендеринга страниц и извлечения данных через JavaScript.
+Парсер товаров Ozon: **загрузка страницы** выполняется скриптом Python (`selenium_test/ozon_fetch.py`) с **undetected-chromedriver**; фильтрация, топ‑50 и интерфейс — на **C++/Qt Quick**.
 
 ## Зависимости (Linux)
 
 ```bash
-# Debian/Ubuntu — сборка
-sudo apt install qtbase5-dev qtdeclarative5-dev qtwebengine5-dev qtquickcontrols2-5-dev
+# Сборка Qt (без WebEngine)
+sudo apt install qtbase5-dev qtdeclarative5-dev qtquickcontrols2-5-dev
 
-# Debian/Ubuntu — QML‑модули для запуска
-sudo apt install qml-module-qtquick-controls2 qml-module-qtquick-layouts qml-module-qtquick-window2
+# QML‑модули для запуска (обязательно, иначе «module QtQuick is not installed»)
+sudo apt install qml-module-qtquick2 qml-module-qtquick-controls2 qml-module-qtquick-layouts qml-module-qtquick-window2
+
+# Python: загрузка страницы Ozon
+sudo apt install python3 python3-undetected-chromedriver chromium chromium-driver
 
 # При ошибке "QQml_colorProvider" или "Unable to assign undefined to QColor":
 sudo apt install qt5-quick-demos
+```
+
+## Скрипт загрузки
+
+По умолчанию ищется файл `selenium_test/ozon_fetch.py` относительно каталога исполняемого файла (`build/../selenium_test/ozon_fetch.py`) или текущего каталога.
+
+Переопределение пути:
+
+```bash
+export OZON_FETCH_SCRIPT=/полный/путь/к/ozon_fetch.py
+./ozon_cpp
 ```
 
 ## Сборка
@@ -25,14 +39,26 @@ make
 
 ## Запуск
 
+Из каталога `build` (чтобы находился `../selenium_test/ozon_fetch.py`):
+
 ```bash
 ./ozon_cpp
 ```
 
+Или задайте `OZON_FETCH_SCRIPT`.
+
+## Ошибка «module QtQuick is not installed»
+
+На машине не установлены **runtime**‑пакеты QML (сборочных `-dev` недостаточно для запуска). Установите:
+
+```bash
+sudo apt install qml-module-qtquick2 qml-module-qtquick-controls2 qml-module-qtquick-layouts qml-module-qtquick-window2
+```
+
 ## Возможности
 
-- Загрузка страниц категорий и поиска Ozon
-- Автоматический скролл для подгрузки всех товаров
-- Фильтрация по баллам за отзыв (мин/макс)
+- Загрузка страниц категорий и поиска Ozon через Python + undetected-chromedriver
+- Автоматический скролл и извлечение данных (логика совпадает с прежним JS)
+- Фильтрация по баллам за отзыв (мин/макс) на стороне C++
 - Топ-50 товаров по соотношению баллы/цена
 - Обновление таблицы в реальном времени

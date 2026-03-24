@@ -1,7 +1,6 @@
 #include <QApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
-#include <QtWebEngine>
 
 #include "ozonscraper.h"
 #include "productmodel.h"
@@ -10,7 +9,6 @@
 
 int main(int argc, char* argv[])
 {
-    QtWebEngine::initialize();
     QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
     QApplication app(argc, argv);
 

@@ -1,7 +1,0 @@
-{"data":{"argc":1},"hypothesisId":"H1","location":"main.cpp:main","message":"entry","sessionId":"4d1e8b","timestamp":1774173380491}
-{"data":{"QT_OPENGL":"","QT_QPA_PLATFORM":""},"hypothesisId":"H2","location":"main.cpp:main","message":"env","sessionId":"4d1e8b","timestamp":1774173380588}
-{"data":{"warnings":[{"desc":"Invalid property assignment: color expected","line":30,"url":"qrc:/qml/main.qml"}]},"hypothesisId":"H4","location":"main.cpp:engine","message":"QML warnings","sessionId":"4d1e8b","timestamp":1774173380616}
-{"data":{"rootObjectsCount":0,"rootObjectsEmpty":true,"url":"qrc:/qml/main.qml"},"hypothesisId":"H5","location":"main.cpp:main","message":"after load","sessionId":"4d1e8b","timestamp":1774173380617}
-{"data":{"argc":1},"hypothesisId":"H1","location":"main.cpp:main","message":"entry","sessionId":"4d1e8b","timestamp":1774173430953}
-{"data":{"QT_OPENGL":"","QT_QPA_PLATFORM":""},"hypothesisId":"H2","location":"main.cpp:main","message":"env","sessionId":"4d1e8b","timestamp":1774173431062}
-{"data":{"rootHeight":600,"rootObjectsCount":1,"rootObjectsEmpty":false,"rootVisible":true,"rootWidth":850,"url":"qrc:/qml/main.qml"},"hypothesisId":"H5","location":"main.cpp:main","message":"after load","sessionId":"4d1e8b","timestamp":1774173431135}

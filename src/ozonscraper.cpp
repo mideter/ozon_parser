@@ -2,12 +2,36 @@
 
 #include <algorithm>
 #include <QCoreApplication>
+#include <QDateTime>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QIODevice>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <QWebEngineProfile>
 
 namespace {
+
+// #region agent log
+void agentDebugLog(const char* location, const char* message, const char* hypothesisId,
+                   const QJsonObject& data = {})
+{
+    QJsonObject payload;
+    payload[QStringLiteral("sessionId")] = QStringLiteral("3dc10a");
+    payload[QStringLiteral("timestamp")] = QDateTime::currentMSecsSinceEpoch();
+    payload[QStringLiteral("location")] = QString::fromUtf8(location);
+    payload[QStringLiteral("message")] = QString::fromUtf8(message);
+    payload[QStringLiteral("hypothesisId")] = QString::fromUtf8(hypothesisId);
+    payload[QStringLiteral("data")] = data;
+    QFile f(QStringLiteral("/home/mideter/ozon/.cursor/debug-3dc10a.log"));
+    if (f.open(QIODevice::Append | QIODevice::Text)) {
+        f.write(QJsonDocument(payload).toJson(QJsonDocument::Compact));
+        f.write("\n");
+        f.close();
+    }
+}
+// #endregion agent log
 
 QString normalizeUrl(const QString& href)
 {
@@ -33,99 +57,35 @@ bool isValidProductUrl(const QString& url)
 
 } // namespace
 
-const char* const OzonScraper::JS_WAIT_PRODUCTS = R"(
-(function() {
-    var paginator = document.getElementById('contentScrollPaginator');
-    if (!paginator) return false;
-    var items = paginator.querySelectorAll('div.pi5_24');
-    return items.length > 0;
-})()
-)";
-
-const char* const OzonScraper::JS_EXTRACT_PRODUCTS = R"(
-(function() {
-    var results = [];
-    var tiles = document.querySelectorAll('div.tile-root[data-index]');
-    for (var i = 0; i < tiles.length; i++) {
-        var el = tiles[i];
-        var name = '';
-        try {
-            var nameEl = el.querySelector("a[target='_blank'] > div > span");
-            if (nameEl) name = nameEl.textContent.trim();
-        } catch(e) {}
-        if (name.length < 3) continue;
-
-        var price = 0;
-        try {
-            var priceEl = el.querySelector("> div > div > div > span");
-            if (priceEl) {
-                var m = priceEl.textContent.match(/[\d\s\u2009,]+/g);
-                if (m && m.length > 0) {
-                    var last = m[m.length - 1].replace(/[\s\u2009,]/g, '');
-                    price = parseInt(last, 10) || 0;
-                }
-            }
-        } catch(e) {}
-
-        var points = 0;
-        try {
-            var pointsEl = el.querySelector("section div[title]");
-            if (pointsEl) {
-                var m = pointsEl.textContent.match(/(\d+(?:\s+\d+)*)/);
-                if (m) {
-                    var s = m[1].replace(/\s/g, '');
-                    points = parseInt(s, 10) || 0;
-                }
-            }
-        } catch(e) {}
-
-        var url = '';
-        try {
-            var linkEl = el.querySelector("> a");
-            if (linkEl && linkEl.href && linkEl.href.indexOf('/product/') >= 0) {
-                url = linkEl.href.split('?')[0].split('#')[0].replace(/\/$/, '');
-                if (url.indexOf('/reviews') >= 0 || url.indexOf('/questions') >= 0 || url.indexOf('/seller') >= 0)
-                    url = '';
-            }
-        } catch(e) {}
-        if (!url || url.split('/product/').pop().split('/')[0].length < 3) continue;
-
-        results.push({name: name, price: price, review_points: points, url: url});
-    }
-    return JSON.stringify(results);
-})()
-)";
-
-const char* const OzonScraper::JS_SCROLL = R"(
-(function() {
-    window.scrollTo(0, document.body.scrollHeight);
-    return document.body.scrollHeight;
-})()
-)";
-
-const char* const OzonScraper::JS_GET_HEIGHT = R"(
-(document.body.scrollHeight)
-)";
-
-
 OzonScraper::OzonScraper(QObject* parent)
     : QObject(parent)
-    , scrollTimer_(new QTimer(this))
+    , process_(new QProcess(this))
 {
-    scrollTimer_->setSingleShot(true);
-    connect(scrollTimer_, &QTimer::timeout, this, &OzonScraper::onScrollAndExtract);
+    connect(process_, &QProcess::readyReadStandardOutput, this, &OzonScraper::onProcessStdout);
+    connect(process_, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+            this, &OzonScraper::onProcessFinished);
 }
-
 
 OzonScraper::~OzonScraper()
 {
     stop();
-    if (page_) {
-        page_->deleteLater();
-        page_ = nullptr;
-    }
 }
 
+QString OzonScraper::resolveFetchScriptPath() const
+{
+    const QByteArray env = qgetenv("OZON_FETCH_SCRIPT");
+    if (!env.isEmpty())
+        return QString::fromLocal8Bit(env);
+
+    const QString appDir = QCoreApplication::applicationDirPath();
+    QString p = QDir(appDir).filePath(QStringLiteral("../selenium_test/ozon_fetch.py"));
+    if (QFileInfo::exists(p))
+        return QDir::cleanPath(p);
+    p = QDir::currentPath() + QStringLiteral("/selenium_test/ozon_fetch.py");
+    if (QFileInfo::exists(p))
+        return p;
+    return QDir::cleanPath(QDir(appDir).filePath(QStringLiteral("../selenium_test/ozon_fetch.py")));
+}
 
 void OzonScraper::start(const QString& urlStr, int minPoints, int maxPoints)
 {
@@ -136,15 +96,17 @@ void OzonScraper::start(const QString& urlStr, int minPoints, int maxPoints)
         emit finishedWithError(QStringLiteral("Некорректный URL."));
 }
 
-
 void OzonScraper::start(const QUrl& url, int minPoints, int maxPoints)
 {
     if (running_)
         return;
 
-    if (page_) {
-        page_->deleteLater();
-        page_ = nullptr;
+    const QString scriptPath = resolveFetchScriptPath();
+    if (!QFileInfo::exists(scriptPath)) {
+        emit finishedWithError(
+            QStringLiteral("Не найден скрипт ozon_fetch.py. Укажите OZON_FETCH_SCRIPT или положите "
+                           "selenium_test/ozon_fetch.py рядом с приложением."));
+        return;
     }
 
     url_ = url;
@@ -153,138 +115,121 @@ void OzonScraper::start(const QUrl& url, int minPoints, int maxPoints)
     seenUrls_.clear();
     allProducts_.clear();
     lastTableCount_ = 0;
-    lastHeight_ = 0;
     lastPrice_ = 0;
+    stdoutBuffer_.clear();
     running_ = true;
     elapsedTimer_.start();
 
-    QWebEngineProfile* profile = QWebEngineProfile::defaultProfile();
-    profile->setHttpUserAgent(QStringLiteral(
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"));
-    page_ = new QWebEnginePage(profile, this);
-    connect(page_, &QWebEnginePage::loadFinished, this, &OzonScraper::onLoadFinished);
+    // #region agent log
+    {
+        QJsonObject d;
+        d[QStringLiteral("scriptPath")] = scriptPath;
+        d[QStringLiteral("url")] = url_.toString();
+        agentDebugLog("ozonscraper.cpp:start", "scraper_start", "H1", d);
+    }
+    // #endregion agent log
 
-    emit statusChanged(QStringLiteral("Загрузка страницы..."), -1, 0);
-    page_->load(url);
+    emit statusChanged(QStringLiteral("Загрузка страницы (Python)..."), -1, 0);
+
+    const QStringList args{scriptPath, url_.toString()};
+    process_->start(QStringLiteral("python3"), args);
+    if (!process_->waitForStarted(5000)) {
+        running_ = false;
+        emit finishedWithError(
+            QStringLiteral("Не удалось запустить python3. Установите Python 3 и зависимости "
+                           "(python3-undetected-chromedriver)."));
+    }
 }
-
 
 void OzonScraper::stop()
 {
     running_ = false;
-    scrollTimer_->stop();
-    if (page_) {
-        page_->deleteLater();
-        page_ = nullptr;
+    if (process_->state() != QProcess::NotRunning) {
+        process_->kill();
+        process_->waitForFinished(3000);
     }
 }
 
-
-void OzonScraper::onLoadFinished(bool ok)
+void OzonScraper::onProcessStdout()
 {
-    if (!running_ || !page_)
-        return;
+    appendStdout(process_->readAllStandardOutput());
+}
 
-    if (!ok) {
-        page_->runJavaScript(QStringLiteral(
-            "(function(){var t=document.title||'';var b=document.body?document.body.innerText.substring(0,400):'';"
-            "return JSON.stringify({title:t,bodySnippet:b});})()"),
-            [this](const QVariant& v) {
-                QString errMsg = QStringLiteral("Не удалось загрузить страницу.");
-                if (!v.toString().isEmpty()) {
-                    QJsonParseError err;
-                    QJsonDocument doc = QJsonDocument::fromJson(v.toString().toUtf8(), &err);
-                    if (err.error == QJsonParseError::NoError && doc.isObject()) {
-                        QString title = doc.object().value(QLatin1String("title")).toString();
-                        if (title.contains(QLatin1String("Доступ ограничен"))) {
-                            errMsg = QStringLiteral(
-                                "Ozon ограничивает доступ с вашей сети. Попробуйте: отключить VPN, "
-                                "подключиться к другой сети (Wi‑Fi/мобильный интернет) или перезагрузить роутер.");
-                        }
-                    }
-                }
-                if (running_)
-                    finishWithError(errMsg);
-            });
+void OzonScraper::appendStdout(const QByteArray& chunk)
+{
+    if (chunk.isEmpty())
         return;
+    stdoutBuffer_.append(chunk);
+    int pos = 0;
+    while ((pos = stdoutBuffer_.indexOf('\n')) >= 0) {
+        QByteArray line = stdoutBuffer_.left(pos).trimmed();
+        stdoutBuffer_.remove(0, pos + 1);
+        if (!line.isEmpty())
+            handleJsonLine(line);
     }
+}
 
-    emit statusChanged(QStringLiteral("Ожидание товаров..."), -1, 0);
+void OzonScraper::handleJsonLine(const QByteArray& line)
+{
+    if (!running_)
+        return;
 
-    page_->runJavaScript(QLatin1String(JS_WAIT_PRODUCTS), [this](const QVariant& v) {
-        if (!running_ || !page_)
-            return;
-        if (!v.toBool()) {
-            QTimer::singleShot(300, this, [this]() {
-                if (!running_ || !page_)
-                    return;
-                page_->runJavaScript(QLatin1String(JS_WAIT_PRODUCTS), [this](const QVariant& v2) {
-                    if (!running_ || !page_)
-                        return;
-                    if (!v2.toBool()) {
-                        finishWithError(QStringLiteral("Товары не найдены. Проверьте URL и структуру страницы Ozon."));
-                        return;
-                    }
-                    lastHeight_ = 0;
-                    scrollTimer_->start(150);
-                });
-            });
-            return;
+    QJsonParseError err;
+    const QJsonDocument doc = QJsonDocument::fromJson(line, &err);
+    if (err.error != QJsonParseError::NoError || !doc.isObject()) {
+        // #region agent log
+        {
+            QJsonObject d;
+            d[QStringLiteral("parseError")] = err.errorString();
+            d[QStringLiteral("lineLen")] = line.size();
+            agentDebugLog("ozonscraper.cpp:handleJsonLine", "json_parse_fail", "H2", d);
         }
-        lastHeight_ = 0;
-        scrollTimer_->start(150);
-    });
+        // #endregion agent log
+        return;
+    }
+
+    const QJsonObject o = doc.object();
+    const QString type = o.value(QLatin1String("type")).toString();
+    // #region agent log
+    {
+        QJsonObject d;
+        d[QStringLiteral("type")] = type;
+        if (type == QLatin1String("batch"))
+            d[QStringLiteral("itemsCount")] = o.value(QLatin1String("items")).toArray().size();
+        agentDebugLog("ozonscraper.cpp:handleJsonLine", "json_line_ok", "H4", d);
+    }
+    // #endregion agent log
+    if (type == QLatin1String("batch")) {
+        const QJsonArray items = o.value(QLatin1String("items")).toArray();
+        const QJsonDocument arrDoc(items);
+        onExtractResult(arrDoc.toJson(QJsonDocument::Compact));
+    } else if (type == QLatin1String("error")) {
+        finishWithError(o.value(QLatin1String("message")).toString());
+    } else if (type == QLatin1String("done")) {
+        // Завершение — итог в onProcessFinished
+    }
 }
 
-
-void OzonScraper::onScrollAndExtract()
+void OzonScraper::onProcessFinished(int exitCode, QProcess::ExitStatus status)
 {
-    if (!running_ || !page_)
+    appendStdout(process_->readAllStandardOutput());
+
+    if (!running_)
         return;
 
-    page_->runJavaScript(QLatin1String(JS_SCROLL), [this](const QVariant&) {
-        if (!running_ || !page_)
-            return;
-        QTimer::singleShot(120, this, [this]() {
-            if (!running_ || !page_)
-                return;
-            page_->runJavaScript(QLatin1String(JS_GET_HEIGHT), [this](const QVariant& heightVar) {
-                if (!running_ || !page_)
-                    return;
-                int newHeight = heightVar.toInt();
-                page_->runJavaScript(QLatin1String(JS_EXTRACT_PRODUCTS), [this, newHeight](const QVariant& result) {
-                    onExtractResult(result);
-                    if (!running_ || !page_)
-                        return;
+    if (status != QProcess::NormalExit || exitCode != 0) {
+        QString err = QString::fromUtf8(process_->readAllStandardError()).trimmed();
+        if (err.isEmpty())
+            err = QStringLiteral("Процесс Python завершился с ошибкой (код %1).").arg(exitCode);
+        finishWithError(err);
+        return;
+    }
 
-                    if (newHeight == lastHeight_) {
-                        QTimer::singleShot(EXTRA_WAIT_MS, this, [this]() {
-                            if (!running_ || !page_)
-                                return;
-                            page_->runJavaScript(QLatin1String(JS_GET_HEIGHT), [this](const QVariant& v2) {
-                                int h2 = v2.toInt();
-                                if (h2 != lastHeight_) {
-                                    lastHeight_ = h2;
-                                    scrollTimer_->start(150);
-                                } else {
-                                    finishWithSuccess();
-                                }
-                            });
-                        });
-                    } else {
-                        lastHeight_ = newHeight;
-                        scrollTimer_->start(150);
-                    }
-                });
-            });
-        });
-    });
+    finishWithSuccess();
 }
 
-
-void OzonScraper::onExtractResult(const QVariant& result)
+void OzonScraper::onExtractResult(const QByteArray& json)
 {
-    const QByteArray json = result.toString().toUtf8();
     if (json.isEmpty())
         return;
 
@@ -312,35 +257,58 @@ void OzonScraper::onExtractResult(const QVariant& result)
     }
 }
 
-
 QVector<Product> OzonScraper::parseProductsFromJson(const QByteArray& json)
 {
     QVector<Product> out;
     QJsonParseError err;
     const QJsonDocument doc = QJsonDocument::fromJson(json, &err);
-    if (err.error != QJsonParseError::NoError || !doc.isArray())
+    if (err.error != QJsonParseError::NoError || !doc.isArray()) {
+        // #region agent log
+        {
+            QJsonObject d;
+            d[QStringLiteral("parseErr")] = err.errorString();
+            d[QStringLiteral("jsonLen")] = json.size();
+            agentDebugLog("ozonscraper.cpp:parseProductsFromJson", "inner_json_fail", "H2", d);
+        }
+        // #endregion agent log
         return out;
+    }
 
     const QJsonArray arr = doc.array();
+    int skipName = 0;
+    int skipUrl = 0;
     int index = allProducts_.size() + 1;
     for (const QJsonValue& v : arr) {
         const QJsonObject o = v.toObject();
         const QString name = o.value(QLatin1String("name")).toString().trimmed();
-        if (name.length() < 3)
+        if (name.length() < 3) {
+            ++skipName;
             continue;
+        }
         const int price = o.value(QLatin1String("price")).toInt(0);
         const int points = o.value(QLatin1String("review_points")).toInt(0);
         QString url = normalizeUrl(o.value(QLatin1String("url")).toString());
-        if (!isValidProductUrl(url))
+        if (!isValidProductUrl(url)) {
+            ++skipUrl;
             continue;
+        }
         QString shortName = name;
         if (shortName.length() > 80)
             shortName = shortName.left(77) + QStringLiteral("...");
         out.append(Product(index++, shortName, price, points, url));
     }
+    // #region agent log
+    {
+        QJsonObject d;
+        d[QStringLiteral("arrLen")] = arr.size();
+        d[QStringLiteral("outLen")] = out.size();
+        d[QStringLiteral("skipName")] = skipName;
+        d[QStringLiteral("skipUrl")] = skipUrl;
+        agentDebugLog("ozonscraper.cpp:parseProductsFromJson", "parse_counts", "H3", d);
+    }
+    // #endregion agent log
     return out;
 }
-
 
 QVector<Product> OzonScraper::computeTop50(const QVector<Product>& all) const
 {
@@ -366,32 +334,34 @@ QVector<Product> OzonScraper::computeTop50(const QVector<Product>& all) const
     return top;
 }
 
-
 void OzonScraper::finishWithError(const QString& message)
 {
     running_ = false;
-    scrollTimer_->stop();
-    if (page_) {
-        page_->deleteLater();
-        page_ = nullptr;
+    if (process_->state() != QProcess::NotRunning) {
+        process_->kill();
+        process_->waitForFinished(2000);
     }
+    stdoutBuffer_.clear();
     emit finishedWithError(message);
 }
-
 
 void OzonScraper::finishWithSuccess()
 {
     running_ = false;
-    scrollTimer_->stop();
 
     const QVector<Product> top = computeTop50(allProducts_);
     const int total = allProducts_.size();
     const QString elapsed = formatElapsed(elapsedTimer_.elapsed());
 
-    if (page_) {
-        page_->deleteLater();
-        page_ = nullptr;
+    stdoutBuffer_.clear();
+
+    // #region agent log
+    {
+        QJsonObject d;
+        d[QStringLiteral("total")] = total;
+        agentDebugLog("ozonscraper.cpp:finishWithSuccess", "finish_total", "H1", d);
     }
+    // #endregion agent log
 
     if (total == 0) {
         emit finishedWithError(QStringLiteral("Товары не найдены. ") + elapsed);
@@ -401,7 +371,6 @@ void OzonScraper::finishWithSuccess()
     emit topProductsUpdated(top, total);
     emit finishedSuccessfully(total, elapsed);
 }
-
 
 QString OzonScraper::formatElapsed(qint64 ms) const
 {
