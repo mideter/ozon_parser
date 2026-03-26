@@ -1,6 +1,11 @@
 # scripts / ozon_fetch
 
-`ozon_fetch.py` повторяет цикл парсинга из `ozon_cpp/ozon_py` (`PageLoader`, `ElementFinder`, `Scroller`, `ProductProcessor`, `ProductParser`), но драйвер — **undetected-chromedriver**, вывод для Qt — NDJSON `batch` / `done` / `error`.
+`ozon_fetch.py` загружает страницу (`PageLoader`), находит плитки (`ElementFinder`), скроллит (`Scroller`), для каждой новой карточки отправляет в stdout **нормализованный URL** и **outerHTML** узла плитки. Драйвер — **undetected-chromedriver**. Вывод для Qt — NDJSON:
+
+- `{"type":"batch","items":[{"url":"https://...","html":"<div class=\"tile-root\" ...>...</div>"}, ...]}`
+- затем `{"type":"done"}` или `{"type":"error","message":"..."}`
+
+Разбор названия, цены и баллов выполняется в приложении (`src/productcardparser.cpp`), не в Python.
 
 ```bash
 pip install -r requirements.txt

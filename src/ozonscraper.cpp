@@ -1,37 +1,16 @@
 #include "ozonscraper.h"
+#include "productcardparser.h"
 
 #include <algorithm>
+#include <optional>
 #include <QCoreApplication>
-#include <QDateTime>
 #include <QDir>
-#include <QFile>
 #include <QFileInfo>
-#include <QIODevice>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 
 namespace {
-
-// #region agent log
-void agentDebugLog(const char* location, const char* message, const char* hypothesisId,
-                   const QJsonObject& data = {})
-{
-    QJsonObject payload;
-    payload[QStringLiteral("sessionId")] = QStringLiteral("3dc10a");
-    payload[QStringLiteral("timestamp")] = QDateTime::currentMSecsSinceEpoch();
-    payload[QStringLiteral("location")] = QString::fromUtf8(location);
-    payload[QStringLiteral("message")] = QString::fromUtf8(message);
-    payload[QStringLiteral("hypothesisId")] = QString::fromUtf8(hypothesisId);
-    payload[QStringLiteral("data")] = data;
-    QFile f(QStringLiteral("/home/mideter/ozon/.cursor/debug-3dc10a.log"));
-    if (f.open(QIODevice::Append | QIODevice::Text)) {
-        f.write(QJsonDocument(payload).toJson(QJsonDocument::Compact));
-        f.write("\n");
-        f.close();
-    }
-}
-// #endregion agent log
 
 QString normalizeUrl(const QString& href)
 {
@@ -120,15 +99,6 @@ void OzonScraper::start(const QUrl& url, int minPoints, int maxPoints)
     running_ = true;
     elapsedTimer_.start();
 
-    // #region agent log
-    {
-        QJsonObject d;
-        d[QStringLiteral("scriptPath")] = scriptPath;
-        d[QStringLiteral("url")] = url_.toString();
-        agentDebugLog("ozonscraper.cpp:start", "scraper_start", "H1", d);
-    }
-    // #endregion agent log
-
     emit statusChanged(QStringLiteral("Загрузка страницы (Python)..."), -1, 0);
 
     const QStringList args{scriptPath, url_.toString()};
@@ -177,28 +147,11 @@ void OzonScraper::handleJsonLine(const QByteArray& line)
     QJsonParseError err;
     const QJsonDocument doc = QJsonDocument::fromJson(line, &err);
     if (err.error != QJsonParseError::NoError || !doc.isObject()) {
-        // #region agent log
-        {
-            QJsonObject d;
-            d[QStringLiteral("parseError")] = err.errorString();
-            d[QStringLiteral("lineLen")] = line.size();
-            agentDebugLog("ozonscraper.cpp:handleJsonLine", "json_parse_fail", "H2", d);
-        }
-        // #endregion agent log
         return;
     }
 
     const QJsonObject o = doc.object();
     const QString type = o.value(QLatin1String("type")).toString();
-    // #region agent log
-    {
-        QJsonObject d;
-        d[QStringLiteral("type")] = type;
-        if (type == QLatin1String("batch"))
-            d[QStringLiteral("itemsCount")] = o.value(QLatin1String("items")).toArray().size();
-        agentDebugLog("ozonscraper.cpp:handleJsonLine", "json_line_ok", "H4", d);
-    }
-    // #endregion agent log
     if (type == QLatin1String("batch")) {
         const QJsonArray items = o.value(QLatin1String("items")).toArray();
         const QJsonDocument arrDoc(items);
@@ -263,50 +216,28 @@ QVector<Product> OzonScraper::parseProductsFromJson(const QByteArray& json)
     QJsonParseError err;
     const QJsonDocument doc = QJsonDocument::fromJson(json, &err);
     if (err.error != QJsonParseError::NoError || !doc.isArray()) {
-        // #region agent log
-        {
-            QJsonObject d;
-            d[QStringLiteral("parseErr")] = err.errorString();
-            d[QStringLiteral("jsonLen")] = json.size();
-            agentDebugLog("ozonscraper.cpp:parseProductsFromJson", "inner_json_fail", "H2", d);
-        }
-        // #endregion agent log
         return out;
     }
 
     const QJsonArray arr = doc.array();
-    int skipName = 0;
-    int skipUrl = 0;
     int index = allProducts_.size() + 1;
     for (const QJsonValue& v : arr) {
         const QJsonObject o = v.toObject();
-        const QString name = o.value(QLatin1String("name")).toString().trimmed();
-        if (name.length() < 3) {
-            ++skipName;
+        const QString url = normalizeUrl(o.value(QLatin1String("url")).toString());
+        if (!isValidProductUrl(url))
             continue;
-        }
-        const int price = o.value(QLatin1String("price")).toInt(0);
-        const int points = o.value(QLatin1String("review_points")).toInt(0);
-        QString url = normalizeUrl(o.value(QLatin1String("url")).toString());
-        if (!isValidProductUrl(url)) {
-            ++skipUrl;
+        const QString html = o.value(QLatin1String("html")).toString();
+        const std::optional<ParsedTile> parsed = parseOzonTileHtml(html, url);
+        if (!parsed.has_value())
             continue;
-        }
+        const QString name = parsed->name.trimmed();
+        if (name.length() < 3)
+            continue;
         QString shortName = name;
         if (shortName.length() > 80)
             shortName = shortName.left(77) + QStringLiteral("...");
-        out.append(Product(index++, shortName, price, points, url));
+        out.append(Product(index++, shortName, parsed->price, parsed->reviewPoints, url));
     }
-    // #region agent log
-    {
-        QJsonObject d;
-        d[QStringLiteral("arrLen")] = arr.size();
-        d[QStringLiteral("outLen")] = out.size();
-        d[QStringLiteral("skipName")] = skipName;
-        d[QStringLiteral("skipUrl")] = skipUrl;
-        agentDebugLog("ozonscraper.cpp:parseProductsFromJson", "parse_counts", "H3", d);
-    }
-    // #endregion agent log
     return out;
 }
 
@@ -354,14 +285,6 @@ void OzonScraper::finishWithSuccess()
     const QString elapsed = formatElapsed(elapsedTimer_.elapsed());
 
     stdoutBuffer_.clear();
-
-    // #region agent log
-    {
-        QJsonObject d;
-        d[QStringLiteral("total")] = total;
-        agentDebugLog("ozonscraper.cpp:finishWithSuccess", "finish_total", "H1", d);
-    }
-    // #endregion agent log
 
     if (total == 0) {
         emit finishedWithError(QStringLiteral("Товары не найдены. ") + elapsed);

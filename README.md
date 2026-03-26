@@ -1,6 +1,6 @@
 # Ozon Scraper (Qt)
 
-Парсер товаров Ozon: **загрузка страницы** выполняется скриптом Python (`scripts/ozon_fetch.py`) с **undetected-chromedriver**; фильтрация, топ‑50 и интерфейс — на **C++/Qt Quick**.
+Парсер товаров Ozon: **загрузка страницы** выполняется скриптом Python (`scripts/ozon_fetch.py`) с **undetected-chromedriver** (в stdout — NDJSON с `outerHTML` плиток и URL); **разбор названия, цены и баллов**, фильтрация, топ‑50 и интерфейс — на **C++/Qt Quick** (`ProductCardParser`).
 
 ## Зависимости (Linux)
 
@@ -58,7 +58,7 @@ sudo apt install qml-module-qtquick2 qml-module-qtquick-controls2 qml-module-qtq
 ## Возможности
 
 - Загрузка страниц категорий и поиска Ozon через Python + undetected-chromedriver
-- Автоматический скролл и парсинг плиток (Python, см. `scripts/`)
+- Автоматический скролл; плитки передаются как HTML; разбор полей карточки в C++
 - Фильтрация по баллам за отзыв (мин/макс) на стороне C++
 - Топ-50 товаров по соотношению баллы/цена
 - Обновление таблицы в реальном времени

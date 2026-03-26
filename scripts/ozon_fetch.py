@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-CLI для Qt: undetected-chromedriver + парсинг как в ozon_cpp/ozon_py (OzonScraper.scrape).
-Stdout: NDJSON {"type":"batch","items":[...]}, затем {"type":"done"}.
+CLI для Qt: undetected-chromedriver, карточки как outerHTML в NDJSON.
+Stdout: {"type":"batch","items":[{"url","html"},...]}, затем {"type":"done"}.
+Парсинг name/price/review_points — в C++ (ProductCardParser).
 """
 from __future__ import annotations
 
@@ -9,14 +10,13 @@ import argparse
 import json
 import sys
 import time
-from typing import List
+from typing import Any, Dict, List, Set
 
+from chrome_driver_version import detect_chrome_major_version
 from element_finder import ElementFinder
 from page_loader import PageLoader
-from product import Product
-from product_parser import ProductParser
-from product_processor import ProductProcessor
 from scroller import Scroller
+from tile_snapshot import tile_html_and_url
 
 
 def emit_error(msg: str) -> None:
@@ -24,7 +24,7 @@ def emit_error(msg: str) -> None:
     sys.exit(1)
 
 
-def emit_batch(items: List[dict]) -> None:
+def emit_batch(items: List[Dict[str, Any]]) -> None:
     if not items:
         return
     print(
@@ -33,16 +33,23 @@ def emit_batch(items: List[dict]) -> None:
     )
 
 
-def products_to_dicts(slice_products: List[Product]) -> List[dict]:
-    return [
-        {
-            "name": p.name,
-            "price": p.price,
-            "review_points": p.review_points,
-            "url": p.url,
-        }
-        for p in slice_products
-    ]
+def collect_new_tiles(
+    driver,
+    finder: ElementFinder,
+    seen_urls: Set[str],
+) -> List[Dict[str, str]]:
+    """Собирает плитки с новыми URL; дедуп по seen_urls (мутирует seen_urls)."""
+    out: List[Dict[str, str]] = []
+    for el in finder.find_product_elements():
+        snap = tile_html_and_url(driver, el)
+        if not snap:
+            continue
+        u = snap["url"]
+        if u in seen_urls:
+            continue
+        seen_urls.add(u)
+        out.append({"url": u, "html": snap["html"]})
+    return out
 
 
 def run(url: str, headless: bool) -> None:
@@ -58,7 +65,12 @@ def run(url: str, headless: bool) -> None:
     if headless:
         options.add_argument("--headless=new")
 
-    driver = uc.Chrome(options=options)
+    maj = detect_chrome_major_version()
+    driver = (
+        uc.Chrome(options=options, version_main=maj)
+        if maj is not None
+        else uc.Chrome(options=options)
+    )
     try:
         page_loader = PageLoader(driver)
         page_loader.load(url)
@@ -84,36 +96,21 @@ def run(url: str, headless: bool) -> None:
 
         finder = ElementFinder(driver)
         scroller = Scroller(driver)
-        parser = ProductParser()
-        processor = ProductProcessor(parser)
+        seen_urls: Set[str] = set()
 
-        products: List[Product] = []
-        seen_urls: set = set()
-        index = 1
-
-        product_elements = finder.find_product_elements()
-        if product_elements:
-            index = processor.process_products(
-                product_elements, seen_urls, products, index
-            )
-            emit_batch(products_to_dicts(products))
+        new_items = collect_new_tiles(driver, finder, seen_urls)
+        emit_batch(new_items)
 
         last_height = scroller.get_page_height()
 
         while True:
             new_height, _ = scroller.scroll_and_wait(last_height)
 
-            previous_count = len(products)
-            product_elements = finder.find_product_elements()
-            if product_elements:
-                index = processor.process_products(
-                    product_elements, seen_urls, products, index
-                )
-                if len(products) > previous_count:
-                    emit_batch(products_to_dicts(products[previous_count:]))
+            new_items = collect_new_tiles(driver, finder, seen_urls)
+            emit_batch(new_items)
 
             if new_height == last_height:
-                if len(products) > previous_count:
+                if new_items:
                     last_height = new_height
                     continue
                 break
