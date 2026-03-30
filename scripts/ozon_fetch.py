@@ -72,6 +72,8 @@ def run(url: str, headless: bool) -> None:
         else uc.Chrome(options=options)
     )
     try:
+        driver.set_window_size(960, 720)
+
         page_loader = PageLoader(driver)
         page_loader.load(url)
 
