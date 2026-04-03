@@ -63,7 +63,5 @@ private:
     QVector<Product> allProducts_;
     int lastTableCount_ = 0;
     int lastPrice_ = 0;
-    int productsAtCurrentUrlStart_ = 0;
     int urlSessionCount_ = 1;
-    QString pendingPrevPageSummary_;
 };

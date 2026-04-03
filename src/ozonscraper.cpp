@@ -112,7 +112,6 @@ void OzonScraper::start(const QString& urlStr, int minPoints, int maxPoints)
     allProducts_.clear();
     lastTableCount_ = 0;
     lastPrice_ = 0;
-    pendingPrevPageSummary_.clear();
     stdoutBuffer_.clear();
     running_ = true;
     elapsedTimer_.start();
@@ -147,18 +146,13 @@ void OzonScraper::start(const QUrl& url, int minPoints, int maxPoints)
 
 void OzonScraper::launchCurrentUrlFetch()
 {
-    productsAtCurrentUrlStart_ = allProducts_.size();
     stdoutBuffer_.clear();
     url_ = QUrl(allUrls_.at(currentUrlIndex_));
     const int total = allUrls_.size();
     const int n = currentUrlIndex_ + 1;
     if (total > 1) {
-        QString load = QStringLiteral("Загрузка страницы (%1 из %2)...").arg(n).arg(total);
-        if (!pendingPrevPageSummary_.isEmpty()) {
-            load = pendingPrevPageSummary_ + QStringLiteral(" → ") + load;
-            pendingPrevPageSummary_.clear();
-        }
-        emit statusChanged(load, -1, 0);
+        emit statusChanged(
+            QStringLiteral("Загрузка страницы (%1 из %2)...").arg(n).arg(total), -1, 0);
     } else {
         emit statusChanged(QStringLiteral("Загрузка страницы..."), -1, 0);
     }
@@ -170,7 +164,6 @@ void OzonScraper::launchCurrentUrlFetch()
 void OzonScraper::stop()
 {
     running_ = false;
-    pendingPrevPageSummary_.clear();
     allUrls_.clear();
     currentUrlIndex_ = 0;
     if (process_->state() != QProcess::NotRunning) {
@@ -238,20 +231,16 @@ void OzonScraper::onProcessFinished(int exitCode, QProcess::ExitStatus status)
     }
 
     const int totalUrls = allUrls_.size();
-    const int doneIdx = currentUrlIndex_;
-    const int newUnique = allProducts_.size() - productsAtCurrentUrlStart_;
-    QString pageLine;
-    if (totalUrls > 1) {
-        pageLine = QStringLiteral("Страница %1 из %2: +%3 новых, всего %4")
-                       .arg(doneIdx + 1)
-                       .arg(totalUrls)
-                       .arg(newUnique)
-                       .arg(allProducts_.size());
-    }
 
     currentUrlIndex_++;
     if (currentUrlIndex_ < allUrls_.size()) {
-        pendingPrevPageSummary_ = pageLine;
+        if (totalUrls > 1 && !allProducts_.isEmpty()) {
+            const int n = allProducts_.size();
+            lastTableCount_ = n;
+            const QVector<Product> top = computeTop50(allProducts_);
+            emit statusChanged(QStringLiteral("Найдено товаров: %1").arg(n), n, lastPrice_);
+            emit topProductsUpdated(top, n);
+        }
         launchCurrentUrlFetch();
         if (!process_->waitForStarted(5000)) {
             finishWithError(
@@ -263,9 +252,6 @@ void OzonScraper::onProcessFinished(int exitCode, QProcess::ExitStatus status)
 
     allUrls_.clear();
     currentUrlIndex_ = 0;
-    if (!pageLine.isEmpty()) {
-        emit statusChanged(pageLine, allProducts_.size(), lastPrice_);
-    }
     finishWithSuccess();
 }
 
@@ -356,7 +342,6 @@ QVector<Product> OzonScraper::computeTop50(const QVector<Product>& all) const
 void OzonScraper::finishWithError(const QString& message)
 {
     running_ = false;
-    pendingPrevPageSummary_.clear();
     allUrls_.clear();
     currentUrlIndex_ = 0;
     if (process_->state() != QProcess::NotRunning) {

@@ -116,11 +116,6 @@ ApplicationWindow {
                 anchors.bottomMargin: 12
                 spacing: 8
 
-                Text {
-                    text: "Параметры поиска"
-                    color: root.gray700
-                }
-
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: 8
