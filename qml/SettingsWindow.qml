@@ -86,9 +86,26 @@ ApplicationWindow {
                 anchors.margins: 12
                 spacing: 8
 
-                Text {
-                    text: "Ссылки (по одной в строке)"
-                    color: settingsWindow.gray800
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+
+                    Text {
+                        text: "Ссылки (по одной в строке)"
+                        color: settingsWindow.gray800
+                        Layout.alignment: Qt.AlignVCenter
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    Button {
+                        text: "Вставить"
+                        Layout.alignment: Qt.AlignVCenter
+                        onClicked: {
+                            urlsEdit.text = settings.clipboardText()
+                            validationError = ""
+                        }
+                    }
                 }
 
                 ScrollView {

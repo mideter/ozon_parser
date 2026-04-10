@@ -1,5 +1,7 @@
 #include "settingsservice.h"
 
+#include <QClipboard>
+#include <QGuiApplication>
 #include <QStringList>
 #include <QUrl>
 
@@ -109,6 +111,13 @@ void SettingsService::save()
     settings_.setValue(kMinPointsKey, minPoints_);
     settings_.setValue(kMaxPointsKey, maxPoints_);
     settings_.sync();
+}
+
+QString SettingsService::clipboardText() const
+{
+    if (QClipboard* clip = QGuiApplication::clipboard())
+        return clip->text();
+    return QString();
 }
 
 void SettingsService::setUrlsText(const QString& urlsText)

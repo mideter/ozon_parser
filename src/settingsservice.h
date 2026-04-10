@@ -29,6 +29,7 @@ public:
                                   const QString& maxPointsText);
     Q_INVOKABLE void load();
     Q_INVOKABLE void save();
+    Q_INVOKABLE QString clipboardText() const;
 
 public slots:
     void setUrlsText(const QString& urlsText);
