@@ -19,9 +19,6 @@ ApplicationWindow {
     readonly property string gray800: "#1e293b"
     readonly property string gray500: "#64748b"
     readonly property string gray50: "#f8fafc"
-    readonly property string blue500: "#3b82f6"
-    readonly property string blue600: "#2563eb"
-    readonly property string amber600: "#d97706"
     readonly property string red600: "#dc2626"
 
     property string validationError: ""
@@ -173,16 +170,6 @@ ApplicationWindow {
                     settings.resetDefaults()
                     syncFromSettings()
                 }
-                background: Rectangle {
-                    color: settingsWindow.amber600
-                    radius: 4
-                }
-                contentItem: Text {
-                    text: resetButton.text
-                    color: settingsWindow.white
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
             }
 
             Item { Layout.fillWidth: true }
@@ -196,16 +183,6 @@ ApplicationWindow {
                 id: saveButton
                 text: "Сохранить"
                 onClicked: trySave()
-                background: Rectangle {
-                    color: settingsWindow.blue500
-                    radius: 4
-                }
-                contentItem: Text {
-                    text: saveButton.text
-                    color: settingsWindow.white
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
             }
         }
     }

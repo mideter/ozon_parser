@@ -148,16 +148,6 @@ ApplicationWindow {
                     Button {
                         id: parseButton
                         text: "Загрузить товары"
-                        background: Rectangle {
-                            color: root.blue500
-                            radius: 4
-                        }
-                        contentItem: Text {
-                            text: parseButton.text
-                            color: root.white
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                        }
                         onClicked: startParsing()
                     }
                 }
