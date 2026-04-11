@@ -89,7 +89,9 @@ ApplicationWindow {
             var n = (typeof totalCount === "number" && totalCount >= 0)
                 ? totalCount
                 : Math.max(0, productModel.totalCount)
-            statusText1 = "Успешно загружено " + n + " товаров" + linksWordCountSuffix(urlCount)
+            statusText1 = n === 0
+                ? "Загрузка завершена, товаров не найдено" + linksWordCountSuffix(urlCount)
+                : "Успешно загружено " + n + " товаров" + linksWordCountSuffix(urlCount)
             statusText2 = elapsedText
         }
 

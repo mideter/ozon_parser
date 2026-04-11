@@ -95,8 +95,8 @@ def run(url: str) -> None:
 
         time.sleep(2)
 
-        if not page_loader.wait_for_products():
-            emit_error("Товары не найдены. Проверьте URL и структуру страницы Ozon.")
+        # Пустая выдача и смена разметки не различаются здесь: собираем сколько есть и завершаемся done.
+        page_loader.wait_for_products()
 
         finder = ElementFinder(driver)
         scroller = Scroller(driver)

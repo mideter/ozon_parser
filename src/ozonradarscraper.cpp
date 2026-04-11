@@ -362,11 +362,6 @@ void OzonRadarScraper::finishWithSuccess()
 
     stdoutBuffer_.clear();
 
-    if (total == 0) {
-        emit finishedWithError(QStringLiteral("Товары не найдены. ") + elapsed);
-        return;
-    }
-
     emit topProductsUpdated(top, total);
     emit finishedSuccessfully(total, elapsed, urlSessionCount_);
 }
