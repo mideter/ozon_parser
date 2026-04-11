@@ -7,7 +7,9 @@
 
 Разбор названия, цены и баллов выполняется в приложении (`src/productcardparser.cpp`), не в Python.
 
+Можно передать несколько URL подряд — браузер поднимается один раз, страницы обрабатываются последовательно.
+
 ```bash
 pip install -r requirements.txt
-python3 ozon_fetch.py "https://www.ozon.ru/..."
+python3 ozon_fetch.py "https://www.ozon.ru/..." "https://www.ozon.ru/..."
 ```

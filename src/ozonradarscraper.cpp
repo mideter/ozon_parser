@@ -105,7 +105,6 @@ void OzonRadarScraper::start(const QString& urlStr, int minPoints, int maxPoints
 
     allUrls_ = urls;
     urlSessionCount_ = urls.size();
-    currentUrlIndex_ = 0;
     minPoints_ = minPoints;
     maxPoints_ = maxPoints;
     seenUrls_.clear();
@@ -147,17 +146,17 @@ void OzonRadarScraper::start(const QUrl& url, int minPoints, int maxPoints)
 void OzonRadarScraper::launchCurrentUrlFetch()
 {
     stdoutBuffer_.clear();
-    url_ = QUrl(allUrls_.at(currentUrlIndex_));
+    url_ = QUrl(allUrls_.constFirst());
     const int total = allUrls_.size();
-    const int n = currentUrlIndex_ + 1;
     if (total > 1) {
         emit statusChanged(
-            QStringLiteral("Загрузка страницы (%1 из %2)...").arg(n).arg(total), -1, 0);
+            QStringLiteral("Браузер: сбор с %1 страниц (одно окно)...").arg(total), -1, 0);
     } else {
         emit statusChanged(QStringLiteral("Загрузка страницы..."), -1, 0);
     }
 
-    const QStringList args{fetchScriptPath_, url_.toString()};
+    QStringList args;
+    args << fetchScriptPath_ << allUrls_;
     process_->start(pythonExe_, args);
 }
 
@@ -165,7 +164,6 @@ void OzonRadarScraper::stop()
 {
     running_ = false;
     allUrls_.clear();
-    currentUrlIndex_ = 0;
     if (process_->state() != QProcess::NotRunning) {
         process_->kill();
         process_->waitForFinished(3000);
@@ -230,28 +228,7 @@ void OzonRadarScraper::onProcessFinished(int exitCode, QProcess::ExitStatus stat
         return;
     }
 
-    const int totalUrls = allUrls_.size();
-
-    currentUrlIndex_++;
-    if (currentUrlIndex_ < allUrls_.size()) {
-        if (totalUrls > 1 && !allProducts_.isEmpty()) {
-            const int n = allProducts_.size();
-            lastTableCount_ = n;
-            const QVector<Product> top = computeTop50(allProducts_);
-            emit statusChanged(QStringLiteral("Найдено товаров: %1").arg(n), n, lastPrice_);
-            emit topProductsUpdated(top, n);
-        }
-        launchCurrentUrlFetch();
-        if (!process_->waitForStarted(5000)) {
-            finishWithError(
-                QStringLiteral("Не удалось перезапустить Python (%1) для следующей ссылки.")
-                    .arg(pythonExe_));
-        }
-        return;
-    }
-
     allUrls_.clear();
-    currentUrlIndex_ = 0;
     finishWithSuccess();
 }
 
@@ -343,7 +320,6 @@ void OzonRadarScraper::finishWithError(const QString& message)
 {
     running_ = false;
     allUrls_.clear();
-    currentUrlIndex_ = 0;
     if (process_->state() != QProcess::NotRunning) {
         process_->kill();
         process_->waitForFinished(2000);

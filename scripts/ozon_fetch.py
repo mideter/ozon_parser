@@ -52,7 +52,59 @@ def collect_new_tiles(
     return out
 
 
-def run(url: str) -> None:
+def _check_access_blocked(driver) -> None:
+    title = driver.title or ""
+    body_text = ""
+    try:
+        body = driver.find_element("tag name", "body")
+        body_text = (body.text or "")[:500]
+    except Exception:
+        pass
+    if "Доступ ограничен" in title or "доступ ограничен" in body_text.lower():
+        emit_error(
+            "Ozon ограничивает доступ с вашей сети. Попробуйте: отключить VPN, "
+            "подключиться к другой сети (Wi‑Fi/мобильный интернет) или перезагрузить роутер."
+        )
+
+
+def scrape_one_listing_url(driver, url: str) -> None:
+    """Одна страница выдачи: загрузка, скролл, батчи в stdout. Драйвер не закрывается."""
+    page_loader = PageLoader(driver)
+    page_loader.load(url)
+
+    try:
+        driver.minimize_window()
+    except Exception:
+        pass
+
+    time.sleep(0.5)
+    _check_access_blocked(driver)
+    time.sleep(2)
+    page_loader.wait_for_products()
+
+    finder = ElementFinder(driver)
+    scroller = Scroller(driver)
+    seen_urls: Set[str] = set()
+
+    new_items = collect_new_tiles(driver, finder, seen_urls)
+    emit_batch(new_items)
+
+    last_height = scroller.get_page_height()
+    while True:
+        new_height, _ = scroller.scroll_and_wait(last_height)
+        new_items = collect_new_tiles(driver, finder, seen_urls)
+        emit_batch(new_items)
+        if new_height == last_height:
+            if new_items:
+                last_height = new_height
+                continue
+            break
+        last_height = new_height
+
+
+def run(urls: List[str]) -> None:
+    if not urls:
+        emit_error("Не переданы URL.")
     try:
         import undetected_chromedriver as uc
     except ImportError:
@@ -70,57 +122,8 @@ def run(url: str) -> None:
     )
     try:
         driver.set_window_size(960, 720)
-
-        page_loader = PageLoader(driver)
-        page_loader.load(url)
-
-        try:
-            driver.minimize_window()
-        except Exception:
-            pass
-
-        time.sleep(0.5)
-        title = driver.title or ""
-        body_text = ""
-        try:
-            body = driver.find_element("tag name", "body")
-            body_text = (body.text or "")[:500]
-        except Exception:
-            pass
-        if "Доступ ограничен" in title or "доступ ограничен" in body_text.lower():
-            emit_error(
-                "Ozon ограничивает доступ с вашей сети. Попробуйте: отключить VPN, "
-                "подключиться к другой сети (Wi‑Fi/мобильный интернет) или перезагрузить роутер."
-            )
-
-        time.sleep(2)
-
-        # Пустая выдача и смена разметки не различаются здесь: собираем сколько есть и завершаемся done.
-        page_loader.wait_for_products()
-
-        finder = ElementFinder(driver)
-        scroller = Scroller(driver)
-        seen_urls: Set[str] = set()
-
-        new_items = collect_new_tiles(driver, finder, seen_urls)
-        emit_batch(new_items)
-
-        last_height = scroller.get_page_height()
-
-        while True:
-            new_height, _ = scroller.scroll_and_wait(last_height)
-
-            new_items = collect_new_tiles(driver, finder, seen_urls)
-            emit_batch(new_items)
-
-            if new_height == last_height:
-                if new_items:
-                    last_height = new_height
-                    continue
-                break
-
-            last_height = new_height
-
+        for url in urls:
+            scrape_one_listing_url(driver, url)
         print(json.dumps({"type": "done"}, ensure_ascii=False), flush=True)
     finally:
         driver.quit()
@@ -128,10 +131,14 @@ def run(url: str) -> None:
 
 def main() -> int:
     argp = argparse.ArgumentParser(description="Ozon fetch для Qt (NDJSON в stdout)")
-    argp.add_argument("url", help="URL категории или поиска Ozon")
+    argp.add_argument(
+        "urls",
+        nargs="+",
+        help="Один или несколько URL категории или поиска Ozon (один браузер на всю сессию)",
+    )
     args = argp.parse_args()
     try:
-        run(args.url)
+        run(args.urls)
     except BrokenPipeError:
         return 0
     except SystemExit:

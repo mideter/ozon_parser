@@ -54,7 +54,6 @@ private:
 
     QUrl url_;
     QStringList allUrls_;
-    int currentUrlIndex_ = 0;
     QString fetchScriptPath_;
     QString pythonExe_;
     int minPoints_ = -1;
