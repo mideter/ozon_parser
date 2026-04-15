@@ -72,11 +72,6 @@ def scrape_one_listing_url(driver, url: str) -> None:
     page_loader = PageLoader(driver)
     page_loader.load(url)
 
-    try:
-        driver.minimize_window()
-    except Exception:
-        pass
-
     time.sleep(0.5)
     _check_access_blocked(driver)
     time.sleep(2)
@@ -121,7 +116,11 @@ def run(urls: List[str]) -> None:
         else uc.Chrome(options=options)
     )
     try:
-        driver.set_window_size(960, 720)
+        try:
+            driver.minimize_window()
+        except Exception:
+            pass
+
         for url in urls:
             scrape_one_listing_url(driver, url)
         print(json.dumps({"type": "done"}, ensure_ascii=False), flush=True)
