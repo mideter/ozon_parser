@@ -33,6 +33,18 @@ def emit_batch(items: List[Dict[str, Any]]) -> None:
     )
 
 
+def emit_progress(processed: int, total: int) -> None:
+    if total <= 1:
+        return
+    print(
+        json.dumps(
+            {"type": "progress", "processed_urls": processed, "total_urls": total},
+            ensure_ascii=False,
+        ),
+        flush=True,
+    )
+
+
 def collect_new_tiles(
     driver,
     finder: ElementFinder,
@@ -121,8 +133,10 @@ def run(urls: List[str]) -> None:
         except Exception:
             pass
 
-        for url in urls:
+        total_urls = len(urls)
+        for idx, url in enumerate(urls, start=1):
             scrape_one_listing_url(driver, url)
+            emit_progress(idx, total_urls)
         print(json.dumps({"type": "done"}, ensure_ascii=False), flush=True)
     finally:
         driver.quit()

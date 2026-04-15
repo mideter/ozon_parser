@@ -149,8 +149,7 @@ void OzonRadarScraper::launchCurrentUrlFetch()
     url_ = QUrl(allUrls_.constFirst());
     const int total = allUrls_.size();
     if (total > 1) {
-        emit statusChanged(
-            QStringLiteral("Браузер: сбор с %1 страниц (одно окно)...").arg(total), -1, 0);
+        emit statusChanged(QStringLiteral("0/%1").arg(total), -1, 0);
     } else {
         emit statusChanged(QStringLiteral("Загрузка страницы..."), -1, 0);
     }
@@ -206,6 +205,12 @@ void OzonRadarScraper::handleJsonLine(const QByteArray& line)
         const QJsonArray items = o.value(QLatin1String("items")).toArray();
         const QJsonDocument arrDoc(items);
         onExtractResult(arrDoc.toJson(QJsonDocument::Compact));
+    } else if (type == QLatin1String("progress")) {
+        const int processed = o.value(QLatin1String("processed_urls")).toInt();
+        const int total = o.value(QLatin1String("total_urls")).toInt();
+        if (total > 1) {
+            emit statusChanged(QStringLiteral("%1/%2").arg(processed).arg(total), -1, 0);
+        }
     } else if (type == QLatin1String("error")) {
         finishWithError(o.value(QLatin1String("message")).toString());
     } else if (type == QLatin1String("done")) {
