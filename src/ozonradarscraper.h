@@ -49,7 +49,6 @@ private:
     QElapsedTimer elapsedTimer_;
     bool running_ = false;
 
-    QUrl url_;
     QStringList allUrls_;
     QString fetchScriptPath_;
     QString pythonExe_;

@@ -113,12 +113,9 @@ void OzonRadarScraper::start(const QString& urlStr, int minPoints, int maxPoints
     running_ = true;
     elapsedTimer_.start();
 
-    pythonExe_ = qEnvironmentVariable("OZON_PYTHON", QStringLiteral("python3"));
+    pythonExe_ = qEnvironmentVariable("OZON_PYTHON", "python3");
 
     launchCurrentUrlFetch();
-    
-    if (!running_)
-        return;
 
     if (!process_->waitForStarted(5000)) {
         if (process_->state() != QProcess::NotRunning) {
@@ -138,7 +135,6 @@ void OzonRadarScraper::start(const QString& urlStr, int minPoints, int maxPoints
 void OzonRadarScraper::launchCurrentUrlFetch()
 {
     stdoutBuffer_.clear();
-    url_ = QUrl(allUrls_.constFirst());
     const int total = allUrls_.size();
     
     if (total > 1)
@@ -172,15 +168,13 @@ void OzonRadarScraper::onProcessStdout()
 
 void OzonRadarScraper::appendStdout(const QByteArray& chunk)
 {
-    if (chunk.isEmpty())
-        return;
-    
     stdoutBuffer_.append(chunk);
     int pos = 0;
     
-    while ((pos = stdoutBuffer_.indexOf('\n')) >= 0) {
+    while ((pos = stdoutBuffer_.indexOf('\n')) != -1) {
         QByteArray line = stdoutBuffer_.left(pos).trimmed();
         stdoutBuffer_.remove(0, pos + 1);
+
         if (!line.isEmpty())
             handleJsonLine(line);
     }
