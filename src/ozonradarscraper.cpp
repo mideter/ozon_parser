@@ -27,8 +27,9 @@ QStringList parseUrlsFromMultiline(const QString& text)
             continue;
 
         if (!line.startsWith("http://", Qt::CaseInsensitive)
-            && !line.startsWith("https://", Qt::CaseInsensitive))
-            line = QStringLiteral("https://") + line;
+            && !line.startsWith("https://", Qt::CaseInsensitive)) {
+            line = "https://" + line;
+        }
 
         const QUrl u = QUrl::fromUserInput(line);
 
@@ -43,9 +44,8 @@ QStringList parseUrlsFromMultiline(const QString& text)
 } // namespace
 
 
-OzonRadarScraper::OzonRadarScraper(QObject* parent)
-    : QObject(parent)
-    , process_(new QProcess(this))
+OzonRadarScraper::OzonRadarScraper()
+    : process_(new QProcess(this))
 {
     connect(process_, &QProcess::readyReadStandardOutput, this, &OzonRadarScraper::onProcessStdout);
     connect(process_, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
@@ -245,30 +245,29 @@ void OzonRadarScraper::onProcessFinished(int exitCode, QProcess::ExitStatus stat
 
 void OzonRadarScraper::onExtractResult(const QByteArray& json)
 {
-    if (json.isEmpty())
-        return;
-
     const QVector<Product> batch = parseProductsFromJson(json);
     int added = 0;
+
     for (const Product& p : batch) {
         const QString u = p.url();
-        if (u.isEmpty() || seenUrls_.contains(u))
+
+        if (seenUrls_.contains(u))
             continue;
+        
         seenUrls_.insert(u);
         allProducts_.append(p);
         added++;
+
         if (p.price() > 0)
             lastPrice_ = p.price();
     }
 
     if (added > 0) {
         const int n = allProducts_.size();
-        if (n == 1 || n - lastTableCount_ >= UPDATE_TABLE_EVERY_N) {
-            lastTableCount_ = n;
-            const QVector<Product> top = computeTop50(allProducts_);
-            emit statusChanged(QStringLiteral("Найдено товаров: %1").arg(n), n, lastPrice_);
-            emit topProductsUpdated(top, n);
-        }
+        lastTableCount_ = n;
+        const QVector<Product> top = computeTop50(allProducts_);
+        emit statusChanged(QStringLiteral("Найдено товаров: %1").arg(n), n, lastPrice_);
+        emit topProductsUpdated(top, n);
     }
 }
 

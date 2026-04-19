@@ -23,17 +23,18 @@ int main(int argc, char* argv[])
     ProductModel productModel;
     SettingsService settings;
 
-    QObject::connect(&scraper, &OzonRadarScraper::topProductsUpdated,
+    QObject::connect(&scraper, 
+                     &OzonRadarScraper::topProductsUpdated,
                      [&productModel](const QVector<Product>& products, int totalCount) {
-                         productModel.setProducts(products, totalCount);
-                     });
+                            productModel.setProducts(products, totalCount);
+                        });
 
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty("scraper", &scraper);
     engine.rootContext()->setContextProperty("productModel", &productModel);
     engine.rootContext()->setContextProperty("settings", &settings);
 
-    engine.load(QUrl(QStringLiteral("qrc:/qml/main.qml")));
+    engine.load(QUrl("qrc:/qml/main.qml"));
 
     if (engine.rootObjects().isEmpty())
         return -1;

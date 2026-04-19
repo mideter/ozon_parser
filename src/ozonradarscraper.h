@@ -16,7 +16,7 @@ class OzonRadarScraper : public QObject
     Q_OBJECT
 
 public:
-    explicit OzonRadarScraper(QObject* parent = nullptr);
+    explicit OzonRadarScraper();
     ~OzonRadarScraper() override;
 
     void start(const QUrl& url, int minPoints, int maxPoints);
@@ -44,8 +44,6 @@ private:
     QString formatElapsed(qint64 ms) const;
     QVector<Product> parseProductsFromJson(const QByteArray& json);
     QVector<Product> computeTop50(const QVector<Product>& all) const;
-
-    static constexpr int UPDATE_TABLE_EVERY_N = 15;
 
     QProcess* process_ = nullptr;
     QByteArray stdoutBuffer_;
