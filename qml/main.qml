@@ -84,7 +84,6 @@ ApplicationWindow {
         function onFinishedSuccessfully(totalCount, elapsedText, urlCount) {
             isRunning = false
             progressBar.visible = false
-            parseButton.enabled = true
             statusColor = "#059669"
             var n = (typeof totalCount === "number" && totalCount >= 0)
                 ? totalCount
@@ -98,7 +97,13 @@ ApplicationWindow {
         function onFinishedWithError(msg) {
             isRunning = false
             progressBar.visible = false
-            parseButton.enabled = true
+            if (msg === "Загрузка остановлена пользователем.") {
+                statusColor = "#0EA5E9"
+                statusText1 = msg
+                statusText2 = ""
+                return
+            }
+
             statusColor = "#DC2626"
             statusText1 = "Ошибка при загрузке"
             statusText2 = ""
@@ -139,8 +144,14 @@ ApplicationWindow {
                     Item { Layout.fillWidth: true }
                     Button {
                         id: parseButton
-                        text: "Загрузить товары"
-                        onClicked: startParsing()
+                        text: root.isRunning ? "Стоп" : "Загрузить товары"
+                        onClicked: {
+                            if (root.isRunning) {
+                                scraper.stop()
+                            } else {
+                                startParsing()
+                            }
+                        }
                     }
                 }
             }
@@ -454,7 +465,6 @@ ApplicationWindow {
 
         productModel.clear()
         productsFoundCount = -1
-        parseButton.enabled = false
         progressBar.visible = true
         root.isRunning = true
         statusText1 = "Инициализация браузера и загрузка страницы..."

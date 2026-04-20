@@ -42,8 +42,12 @@ void PythonFetchProcessRunner::stop(int waitMs)
     if (!isRunning())
         return;
 
+    process_.terminate();
+    if (process_.waitForFinished(waitMs))
+        return;
+
     process_.kill();
-    process_.waitForFinished(waitMs);
+    process_.waitForFinished(1000);
 }
 
 

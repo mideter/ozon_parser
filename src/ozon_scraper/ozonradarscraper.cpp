@@ -80,6 +80,7 @@ QString OzonRadarScraper::resolveFetchScriptPath() const
 void OzonRadarScraper::start(const QString& urlStr, int minPoints, int maxPoints)
 {
     fetchScriptPath_ = resolveFetchScriptPath();
+    stopRequested_ = false;
 
     const QStringList urls = parseUrlsFromMultiline(urlStr);
     if (urls.isEmpty()) {
@@ -135,6 +136,7 @@ void OzonRadarScraper::launchCurrentUrlFetch()
 
 void OzonRadarScraper::stop()
 {
+    stopRequested_ = true;
     processRunner_->stop(3000);
 }
 
@@ -186,6 +188,14 @@ void OzonRadarScraper::handleJsonLine(const QByteArray& line)
 
 void OzonRadarScraper::onProcessFinished(int exitCode, QProcess::ExitStatus status, const QString& stderrText)
 {
+    if (stopRequested_) {
+        stopRequested_ = false;
+        allUrls_.clear();
+        stdoutBuffer_.clear();
+        emit finishedWithError(QStringLiteral("Загрузка остановлена пользователем."));
+        return;
+    }
+
     if (status != QProcess::NormalExit || exitCode != 0) {
         QString err = stderrText;
         if (err.isEmpty())
@@ -218,6 +228,7 @@ void OzonRadarScraper::onExtractResult(const QByteArray& json)
 
 void OzonRadarScraper::finishWithError(const QString& message)
 {
+    stopRequested_ = false;
     processRunner_->stop(2000);
 
     stdoutBuffer_.clear();
@@ -227,6 +238,7 @@ void OzonRadarScraper::finishWithError(const QString& message)
 
 void OzonRadarScraper::finishWithSuccess()
 {
+    stopRequested_ = false;
     const QVector<Product> top =
         ScraperResultUtils::computeTopProducts(productAccumulator_.allProducts(), minPoints_, maxPoints_);
     const int total = productAccumulator_.totalCount();

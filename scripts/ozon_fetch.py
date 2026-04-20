@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import signal
 import sys
 import time
 from typing import Any, Dict, List, Set
@@ -17,6 +18,18 @@ from element_finder import ElementFinder
 from page_loader import PageLoader
 from scroller import Scroller
 from tile_snapshot import tile_html_and_url
+
+_stop_requested = False
+
+
+def _request_stop(*_: object) -> None:
+    global _stop_requested
+    _stop_requested = True
+
+
+def _ensure_not_stopped() -> None:
+    if _stop_requested:
+        raise KeyboardInterrupt
 
 
 def emit_error(msg: str) -> None:
@@ -51,6 +64,7 @@ def collect_new_tiles(
     seen_urls: Set[str],
 ) -> List[Dict[str, str]]:
     """Собирает плитки с новыми URL; дедуп по seen_urls (мутирует seen_urls)."""
+    _ensure_not_stopped()
     out: List[Dict[str, str]] = []
     for el in finder.find_product_elements():
         snap = tile_html_and_url(driver, el)
@@ -81,6 +95,7 @@ def _check_access_blocked(driver) -> None:
 
 def scrape_one_listing_url(driver, url: str) -> None:
     """Одна страница выдачи: загрузка, скролл, батчи в stdout. Драйвер не закрывается."""
+    _ensure_not_stopped()
     page_loader = PageLoader(driver)
     page_loader.load(url)
 
@@ -98,6 +113,7 @@ def scrape_one_listing_url(driver, url: str) -> None:
 
     last_height = scroller.get_page_height()
     while True:
+        _ensure_not_stopped()
         new_height, _ = scroller.scroll_and_wait(last_height)
         new_items = collect_new_tiles(driver, finder, seen_urls)
         emit_batch(new_items)
@@ -135,6 +151,7 @@ def run(urls: List[str]) -> None:
 
         total_urls = len(urls)
         for idx, url in enumerate(urls, start=1):
+            _ensure_not_stopped()
             scrape_one_listing_url(driver, url)
             emit_progress(idx, total_urls)
         print(json.dumps({"type": "done"}, ensure_ascii=False), flush=True)
@@ -143,6 +160,9 @@ def run(urls: List[str]) -> None:
 
 
 def main() -> int:
+    signal.signal(signal.SIGTERM, _request_stop)
+    signal.signal(signal.SIGINT, _request_stop)
+
     argp = argparse.ArgumentParser(description="Ozon fetch для Qt (NDJSON в stdout)")
     argp.add_argument(
         "urls",
@@ -152,6 +172,8 @@ def main() -> int:
     args = argp.parse_args()
     try:
         run(args.urls)
+    except KeyboardInterrupt:
+        return 0
     except BrokenPipeError:
         return 0
     except SystemExit:

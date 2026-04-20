@@ -19,7 +19,7 @@ public:
     ~OzonRadarScraper() override;
 
     Q_INVOKABLE void start(const QString& urlStr, int minPoints, int maxPoints);
-    void stop();
+    Q_INVOKABLE void stop();
 
 signals:
     void statusChanged(const QString& message, int count, int lastPrice);
@@ -52,4 +52,5 @@ private:
     ProductAccumulator productAccumulator_;
     int lastTableCount_ = 0;
     int urlSessionCount_ = 1;
+    bool stopRequested_ = false;
 };
