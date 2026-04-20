@@ -40,9 +40,7 @@ private:
     void onExtractResult(const QByteArray& jsonArrayUtf8);
     void finishWithError(const QString& message);
     void finishWithSuccess();
-    QString formatElapsed(qint64 ms) const;
     QVector<Product> parseProductsFromJson(const QByteArray& json);
-    QVector<Product> computeTop50(const QVector<Product>& all) const;
 
     QProcess* process_ = nullptr;
     QByteArray stdoutBuffer_;

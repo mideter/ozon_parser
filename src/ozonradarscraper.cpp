@@ -1,9 +1,8 @@
 #include "ozonradarscraper.h"
 #include "productcardparser.h"
+#include "scraperresultutils.h"
 
-#include <algorithm>
 #include <optional>
-#include <iostream>
 #include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
@@ -241,7 +240,8 @@ void OzonRadarScraper::onExtractResult(const QByteArray& json)
     if (added > 0) {
         const int n = allProducts_.size();
         lastTableCount_ = n;
-        const QVector<Product> top = computeTop50(allProducts_);
+        const QVector<Product> top =
+            ScraperResultUtils::computeTopProducts(allProducts_, minPoints_, maxPoints_);
         emit statusChanged(QStringLiteral("Найдено товаров: %1").arg(n), n, lastPrice_);
         emit topProductsUpdated(top, n);
     }
@@ -285,36 +285,6 @@ QVector<Product> OzonRadarScraper::parseProductsFromJson(const QByteArray& json)
 }
 
 
-QVector<Product> OzonRadarScraper::computeTop50(const QVector<Product>& all) const
-{
-    QVector<Product> filtered;
-
-    for (const Product& p : all) {
-        const int pts = p.reviewPoints();
-        if (minPoints_ >= 0 && pts < minPoints_)
-            continue;
-        if (maxPoints_ >= 0 && pts > maxPoints_)
-            continue;
-        filtered.append(p);
-    }
-
-    std::sort(filtered.begin(), filtered.end(), [](const Product& a, const Product& b) {
-        return a.pointsToPriceRatio() > b.pointsToPriceRatio();
-    });
-
-    const int n = qMin(50, filtered.size());
-    QVector<Product> top;
-    top.reserve(n);
-
-    for (int i = 0; i < n; ++i) {
-        const Product& orig = filtered[i];
-        top.append(Product(i + 1, orig.name(), orig.price(), orig.reviewPoints(), orig.url()));
-    }
-
-    return top;
-}
-
-
 void OzonRadarScraper::finishWithError(const QString& message)
 {
     if (process_->state() != QProcess::NotRunning) {
@@ -329,9 +299,10 @@ void OzonRadarScraper::finishWithError(const QString& message)
 
 void OzonRadarScraper::finishWithSuccess()
 {
-    const QVector<Product> top = computeTop50(allProducts_);
+    const QVector<Product> top =
+        ScraperResultUtils::computeTopProducts(allProducts_, minPoints_, maxPoints_);
     const int total = allProducts_.size();
-    const QString elapsed = formatElapsed(elapsedTimer_.elapsed());
+    const QString elapsed = ScraperResultUtils::formatElapsedText(elapsedTimer_.elapsed());
 
     stdoutBuffer_.clear();
 
@@ -339,19 +310,3 @@ void OzonRadarScraper::finishWithSuccess()
     emit finishedSuccessfully(total, elapsed, urlSessionCount_);
 }
 
-
-QString OzonRadarScraper::formatElapsed(qint64 ms) const
-{
-    const double sec = ms / 1000.0;
-
-    if (sec < 60)
-        return QStringLiteral("Затрачено %1 сек").arg(sec, 0, 'f', 1);
-    
-    const int m = static_cast<int>(sec / 60);
-    const double s = sec - m * 60;
-    
-    if (s < 0.1)
-        return QStringLiteral("Затрачено %1 мин").arg(m);
-    
-    return QStringLiteral("Затрачено %1 мин %2 сек").arg(m).arg(s, 0, 'f', 1);
-}
