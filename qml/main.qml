@@ -130,16 +130,6 @@ ApplicationWindow {
 
                 RowLayout {
                     Layout.fillWidth: true
-                    spacing: 10
-                    Text {
-                        text: "Параметры запуска задаются в отдельном окне настроек."
-                        Layout.fillWidth: true
-                        color: root.gray800
-                    }
-                }
-
-                RowLayout {
-                    Layout.fillWidth: true
                     spacing: 8
                     Button {
                         id: settingsButton
