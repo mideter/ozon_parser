@@ -1,11 +1,8 @@
 #include "ozon_scraper/batchproductmapper.h"
+#include "ozon_scraper/fetchscriptpathresolver.h"
 #include "ozon_scraper/ozonradarscraper.h"
 #include "ozon_scraper/scraperresultutils.h"
 #include "ozon_scraper/urlinputparser.h"
-
-#include <QCoreApplication>
-#include <QDir>
-
 
 OzonRadarScraper::OzonRadarScraper()
     : processRunner_(new PythonFetchProcessRunner(this))
@@ -23,31 +20,9 @@ OzonRadarScraper::~OzonRadarScraper()
 }
 
 
-QString OzonRadarScraper::resolveFetchScriptPath() const
-{
-    const QByteArray env = qgetenv("OZON_FETCH_SCRIPT");
-
-    if (!env.isEmpty())
-        return QString::fromLocal8Bit(env);
-
-    const QString appDir = QCoreApplication::applicationDirPath();
-    QString p = QDir(appDir).filePath("../scripts/ozon_fetch.py");
-
-    if (QFileInfo::exists(p))
-        return QDir::cleanPath(p);
-
-    p = QDir::currentPath() + "/scripts/ozon_fetch.py";
-
-    if (QFileInfo::exists(p))
-        return p;
-
-    return QDir::cleanPath(QDir(appDir).filePath("../scripts/ozon_fetch.py"));
-}
-
-
 void OzonRadarScraper::start(const QString& urlStr, int minPoints, int maxPoints)
 {
-    fetchScriptPath_ = resolveFetchScriptPath();
+    fetchScriptPath_ = FetchScriptPathResolver::resolve();
     stopRequested_ = false;
 
     const QStringList urls = UrlInputParser::parseMultiline(urlStr);

@@ -32,7 +32,6 @@ private slots:
     void onProcessFinished(int exitCode, QProcess::ExitStatus status, const QString& stderrText);
 
 private:
-    QString resolveFetchScriptPath() const;
     void launchCurrentUrlFetch();
     void handleFetchEvent(const FetchEvent& event);
     void onExtractResult(const QByteArray& jsonArrayUtf8);
