@@ -98,10 +98,8 @@ void OzonRadarScraper::start(const QString& urlStr, int minPoints, int maxPoints
     urlSessionCount_ = urls.size();
     minPoints_ = minPoints;
     maxPoints_ = maxPoints;
-    seenUrls_.clear();
-    allProducts_.clear();
+    productAccumulator_.reset();
     lastTableCount_ = 0;
-    lastPrice_ = 0;
     stdoutBuffer_.clear();
     elapsedTimer_.start();
 
@@ -212,29 +210,16 @@ void OzonRadarScraper::onProcessFinished(int exitCode, QProcess::ExitStatus stat
 
 void OzonRadarScraper::onExtractResult(const QByteArray& json)
 {
-    const QVector<Product> batch = BatchProductMapper::mapBatchJson(json, allProducts_.size() + 1);
-    int added = 0;
+    const QVector<Product> batch =
+        BatchProductMapper::mapBatchJson(json, productAccumulator_.totalCount() + 1);
+    const ProductAccumulatorAddResult addResult = productAccumulator_.addBatch(batch);
 
-    for (const Product& p : batch) {
-        const QString u = p.url();
-
-        if (seenUrls_.contains(u))
-            continue;
-
-        seenUrls_.insert(u);
-        allProducts_.append(p);
-        added++;
-
-        if (p.price() > 0)
-            lastPrice_ = p.price();
-    }
-
-    if (added > 0) {
-        const int n = allProducts_.size();
+    if (addResult.addedCount > 0) {
+        const int n = addResult.totalCount;
         lastTableCount_ = n;
         const QVector<Product> top =
-            ScraperResultUtils::computeTopProducts(allProducts_, minPoints_, maxPoints_);
-        emit statusChanged(QStringLiteral("Найдено товаров: %1").arg(n), n, lastPrice_);
+            ScraperResultUtils::computeTopProducts(productAccumulator_.allProducts(), minPoints_, maxPoints_);
+        emit statusChanged(QStringLiteral("Найдено товаров: %1").arg(n), n, addResult.lastPrice);
         emit topProductsUpdated(top, n);
     }
 }
@@ -255,8 +240,8 @@ void OzonRadarScraper::finishWithError(const QString& message)
 void OzonRadarScraper::finishWithSuccess()
 {
     const QVector<Product> top =
-        ScraperResultUtils::computeTopProducts(allProducts_, minPoints_, maxPoints_);
-    const int total = allProducts_.size();
+        ScraperResultUtils::computeTopProducts(productAccumulator_.allProducts(), minPoints_, maxPoints_);
+    const int total = productAccumulator_.totalCount();
     const QString elapsed = ScraperResultUtils::formatElapsedText(elapsedTimer_.elapsed());
 
     stdoutBuffer_.clear();

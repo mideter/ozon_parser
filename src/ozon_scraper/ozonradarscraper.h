@@ -1,11 +1,11 @@
 #pragma once
 
+#include "ozon_scraper/productaccumulator.h"
 #include "product.h"
 
 #include <QElapsedTimer>
 #include <QObject>
 #include <QProcess>
-#include <QSet>
 #include <QStringList>
 #include <QUrl>
 #include <QVector>
@@ -49,9 +49,7 @@ private:
     QString pythonExe_;
     int minPoints_ = -1;
     int maxPoints_ = -1;
-    QSet<QString> seenUrls_;
-    QVector<Product> allProducts_;
+    ProductAccumulator productAccumulator_;
     int lastTableCount_ = 0;
-    int lastPrice_ = 0;
     int urlSessionCount_ = 1;
 };
