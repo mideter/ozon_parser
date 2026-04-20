@@ -1,6 +1,5 @@
 #include "ozon_scraper/batchproductmapper.h"
 #include "ozon_scraper/ozonradarscraper.h"
-#include "ozon_scraper/fetcheventparser.h"
 #include "ozon_scraper/scraperresultutils.h"
 
 #include <QCoreApplication>
@@ -94,7 +93,7 @@ void OzonRadarScraper::start(const QString& urlStr, int minPoints, int maxPoints
     maxPoints_ = maxPoints;
     productAccumulator_.reset();
     lastTableCount_ = 0;
-    stdoutBuffer_.clear();
+    fetchEventParser_.reset();
     elapsedTimer_.start();
 
     pythonExe_ = qEnvironmentVariable("OZON_PYTHON", "python3");
@@ -105,7 +104,7 @@ void OzonRadarScraper::start(const QString& urlStr, int minPoints, int maxPoints
 
 void OzonRadarScraper::launchCurrentUrlFetch()
 {
-    stdoutBuffer_.clear();
+    fetchEventParser_.reset();
     const int total = allUrls_.size();
 
     if (total > 1)
@@ -143,29 +142,14 @@ void OzonRadarScraper::stop()
 
 void OzonRadarScraper::onProcessStdout(const QByteArray& chunk)
 {
-    appendStdout(chunk);
+    const QVector<FetchEvent> events = fetchEventParser_.parseChunk(chunk);
+    for (const FetchEvent& event : events)
+        handleFetchEvent(event);
 }
 
 
-void OzonRadarScraper::appendStdout(const QByteArray& chunk)
+void OzonRadarScraper::handleFetchEvent(const FetchEvent& event)
 {
-    stdoutBuffer_.append(chunk);
-    int pos = 0;
-
-    while ((pos = stdoutBuffer_.indexOf('\n')) != -1) {
-        QByteArray line = stdoutBuffer_.left(pos).trimmed();
-        stdoutBuffer_.remove(0, pos + 1);
-
-        if (!line.isEmpty())
-            handleJsonLine(line);
-    }
-}
-
-
-void OzonRadarScraper::handleJsonLine(const QByteArray& line)
-{
-    const FetchEvent event = FetchEventParser::parseLine(line);
-
     switch (event.type) {
     case FetchEvent::Type::Batch:
         onExtractResult(event.batchJson);
@@ -191,7 +175,7 @@ void OzonRadarScraper::onProcessFinished(int exitCode, QProcess::ExitStatus stat
     if (stopRequested_) {
         stopRequested_ = false;
         allUrls_.clear();
-        stdoutBuffer_.clear();
+        fetchEventParser_.reset();
         emit finishedWithError(QStringLiteral("Загрузка остановлена пользователем."));
         return;
     }
@@ -231,7 +215,7 @@ void OzonRadarScraper::finishWithError(const QString& message)
     stopRequested_ = false;
     processRunner_->stop(2000);
 
-    stdoutBuffer_.clear();
+    fetchEventParser_.reset();
     emit finishedWithError(message);
 }
 
@@ -244,7 +228,7 @@ void OzonRadarScraper::finishWithSuccess()
     const int total = productAccumulator_.totalCount();
     const QString elapsed = ScraperResultUtils::formatElapsedText(elapsedTimer_.elapsed());
 
-    stdoutBuffer_.clear();
+    fetchEventParser_.reset();
 
     emit topProductsUpdated(top, total);
     emit finishedSuccessfully(total, elapsed, urlSessionCount_);

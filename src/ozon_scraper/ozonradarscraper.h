@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ozon_scraper/fetcheventparser.h"
 #include "ozon_scraper/pythonfetchprocessrunner.h"
 #include "ozon_scraper/productaccumulator.h"
 #include "product.h"
@@ -34,14 +35,13 @@ private slots:
 private:
     QString resolveFetchScriptPath() const;
     void launchCurrentUrlFetch();
-    void appendStdout(const QByteArray& chunk);
-    void handleJsonLine(const QByteArray& line);
+    void handleFetchEvent(const FetchEvent& event);
     void onExtractResult(const QByteArray& jsonArrayUtf8);
     void finishWithError(const QString& message);
     void finishWithSuccess();
 
     PythonFetchProcessRunner* processRunner_ = nullptr;
-    QByteArray stdoutBuffer_;
+    FetchEventParser fetchEventParser_;
     QElapsedTimer elapsedTimer_;
 
     QStringList allUrls_;

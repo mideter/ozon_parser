@@ -2,6 +2,7 @@
 
 #include <QByteArray>
 #include <QString>
+#include <QVector>
 
 struct FetchEvent
 {
@@ -23,5 +24,11 @@ struct FetchEvent
 class FetchEventParser
 {
 public:
+    QVector<FetchEvent> parseChunk(const QByteArray& chunk);
+    void reset();
+
+private:
     static FetchEvent parseLine(const QByteArray& line);
+
+    QByteArray chunkBuffer_;
 };

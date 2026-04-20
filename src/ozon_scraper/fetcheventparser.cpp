@@ -4,6 +4,32 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 
+QVector<FetchEvent> FetchEventParser::parseChunk(const QByteArray& chunk)
+{
+    QVector<FetchEvent> events;
+    chunkBuffer_.append(chunk);
+
+    int pos = 0;
+    while ((pos = chunkBuffer_.indexOf('\n')) != -1) {
+        const QByteArray line = chunkBuffer_.left(pos).trimmed();
+        chunkBuffer_.remove(0, pos + 1);
+
+        if (line.isEmpty())
+            continue;
+
+        const FetchEvent event = parseLine(line);
+        if (event.type != FetchEvent::Type::Invalid)
+            events.append(event);
+    }
+
+    return events;
+}
+
+void FetchEventParser::reset()
+{
+    chunkBuffer_.clear();
+}
+
 FetchEvent FetchEventParser::parseLine(const QByteArray& line)
 {
     FetchEvent event;
