@@ -265,7 +265,7 @@ QVector<Product> OzonRadarScraper::parseProductsFromJson(const QByteArray& json)
         
         const QString url = o.value("url").toString();
         const QString html = o.value("html").toString();
-        const std::optional<ParsedTile> parsed = parseOzonTileHtml(html, url);
+        const std::optional<ParsedTile> parsed = ParsedTile::parseHtml(html);
 
         if (!parsed.has_value())
             continue;
