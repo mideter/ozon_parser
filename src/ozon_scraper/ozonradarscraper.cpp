@@ -4,6 +4,8 @@
 #include "ozon_scraper/scraperresultutils.h"
 #include "ozon_scraper/urlinputparser.h"
 
+#include <exception>
+
 OzonRadarScraper::OzonRadarScraper()
     : processRunner_(new PythonFetchProcessRunner(this))
 {
@@ -56,23 +58,11 @@ void OzonRadarScraper::launchCurrentUrlFetch()
     else
         emit statusChanged("Загрузка страницы...", -1, 0);
 
-    const PythonFetchStartStatus startStatus =
+    try {
         processRunner_->startFetch(pythonExe_, fetchScriptPath_, allUrls_);
-
-    if (startStatus == PythonFetchStartStatus::ScriptNotFound) {
+    } catch (const std::exception& ex) {
         allUrls_.clear();
-        emit finishedWithError(
-            "Не найден скрипт ozon_fetch.py. Укажите OZON_FETCH_SCRIPT или положите "
-            "scripts/ozon_fetch.py рядом с приложением.");
-        return;
-    }
-
-    if (startStatus == PythonFetchStartStatus::StartFailed) {
-        allUrls_.clear();
-        emit finishedWithError(
-            QString("Не удалось запустить Python (%1). Установите Python 3 и зависимости "
-                    "(см. README).")
-                .arg(pythonExe_));
+        emit finishedWithError(QString::fromUtf8(ex.what()));
     }
 }
 

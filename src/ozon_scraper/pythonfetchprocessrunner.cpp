@@ -1,6 +1,7 @@
 #include "ozon_scraper/pythonfetchprocessrunner.h"
 
 #include <QFileInfo>
+#include <stdexcept>
 
 
 PythonFetchProcessRunner::PythonFetchProcessRunner(QObject* parent)
@@ -13,12 +14,13 @@ PythonFetchProcessRunner::PythonFetchProcessRunner(QObject* parent)
 }
 
 
-PythonFetchStartStatus PythonFetchProcessRunner::startFetch(const QString& pythonExe,
-                                                            const QString& scriptPath,
-                                                            const QStringList& urls)
+void PythonFetchProcessRunner::startFetch(const QString& pythonExe,
+                                          const QString& scriptPath,
+                                          const QStringList& urls)
 {
     if (!QFileInfo::exists(scriptPath))
-        return PythonFetchStartStatus::ScriptNotFound;
+        throw std::runtime_error(
+            "Не найден скрипт ozon_fetch.py. Укажите OZON_FETCH_SCRIPT или положите scripts/ozon_fetch.py рядом с приложением.");
 
     if (isRunning())
         stop();
@@ -28,12 +30,15 @@ PythonFetchStartStatus PythonFetchProcessRunner::startFetch(const QString& pytho
 
     process_.start(pythonExe, args);
     if (process_.waitForStarted(5000))
-        return PythonFetchStartStatus::Started;
+        return;
 
     if (isRunning())
         stop(2000);
 
-    return PythonFetchStartStatus::StartFailed;
+    throw std::runtime_error(
+        QString("Не удалось запустить Python (%1). Установите Python 3 и зависимости (см. README).")
+            .arg(pythonExe)
+            .toStdString());
 }
 
 

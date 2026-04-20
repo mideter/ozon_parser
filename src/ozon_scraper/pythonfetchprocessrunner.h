@@ -5,12 +5,6 @@
 #include <QString>
 #include <QStringList>
 
-enum class PythonFetchStartStatus {
-    Started,
-    ScriptNotFound,
-    StartFailed
-};
-
 class PythonFetchProcessRunner : public QObject
 {
     Q_OBJECT
@@ -18,9 +12,9 @@ class PythonFetchProcessRunner : public QObject
 public:
     explicit PythonFetchProcessRunner(QObject* parent = nullptr);
 
-    PythonFetchStartStatus startFetch(const QString& pythonExe,
-                                      const QString& scriptPath,
-                                      const QStringList& urls);
+    void startFetch(const QString& pythonExe,
+                    const QString& scriptPath,
+                    const QStringList& urls);
     void stop(int waitMs = 3000);
     bool isRunning() const;
 
