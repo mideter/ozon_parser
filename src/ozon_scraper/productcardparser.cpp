@@ -1,10 +1,8 @@
-#include "productcardparser.h"
+#include "ozon_scraper/productcardparser.h"
 
 #include <QRegularExpression>
 
-
 namespace {
-
 
 QString stripTags(const QString& html)
 {
@@ -39,7 +37,6 @@ QString stripTags(const QString& html)
     return s.simplified();
 }
 
-
 int parseDigitsGroup(const QString& numPart)
 {
     QString d = numPart;
@@ -52,7 +49,6 @@ int parseDigitsGroup(const QString& numPart)
     const int v = d.toInt(&ok);
     return ok ? v : 0;
 }
-
 
 int extractPriceFromPlain(const QString& text)
 {
@@ -90,7 +86,6 @@ int extractPriceFromPlain(const QString& text)
     return lastPrice;
 }
 
-
 int extractReviewPointsFromHtml(const QString& html)
 {
     static const QRegularExpression reSectionDivTitle(
@@ -110,7 +105,6 @@ int extractReviewPointsFromHtml(const QString& html)
 
     return 0;
 }
-
 
 QString extractNameFromHtml(const QString& html, const QString& plain)
 {
@@ -152,9 +146,7 @@ QString extractNameFromHtml(const QString& html, const QString& plain)
     return {};
 }
 
-
 } // namespace
-
 
 std::optional<ParsedTile> ParsedTile::parseHtml(const QString& html)
 {
@@ -174,7 +166,7 @@ std::optional<ParsedTile> ParsedTile::parseHtml(const QString& html)
         static const QRegularExpression rePointsSection(
             QStringLiteral("<section[^>]*>([\\s\\S]{0,4000}?)</section>"),
             QRegularExpression::CaseInsensitiveOption);
-            
+
         const QRegularExpressionMatch sm = rePointsSection.match(html);
 
         if (sm.hasMatch()) {

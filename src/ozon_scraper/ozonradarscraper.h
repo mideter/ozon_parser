@@ -10,7 +10,6 @@
 #include <QUrl>
 #include <QVector>
 
-
 class OzonRadarScraper : public QObject
 {
     Q_OBJECT

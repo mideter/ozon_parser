@@ -2,11 +2,11 @@
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 
-#include "shortcutlayoutfix.h"
-#include "ozonradarscraper.h"
-#include "productmodel.h"
+#include "ozon_scraper/ozonradarscraper.h"
 #include "product.h"
+#include "productmodel.h"
 #include "settingsservice.h"
+#include "shortcutlayoutfix.h"
 
 
 int main(int argc, char* argv[])

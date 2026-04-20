@@ -1,9 +1,8 @@
-#include "fetcheventparser.h"
+#include "ozon_scraper/fetcheventparser.h"
 
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
-
 
 FetchEvent FetchEventParser::parseLine(const QByteArray& line)
 {

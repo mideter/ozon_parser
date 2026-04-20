@@ -3,7 +3,6 @@
 #include <QByteArray>
 #include <QString>
 
-
 struct FetchEvent
 {
     enum class Type {
@@ -20,7 +19,6 @@ struct FetchEvent
     int totalUrls = 0;
     QString errorMessage;
 };
-
 
 class FetchEventParser
 {

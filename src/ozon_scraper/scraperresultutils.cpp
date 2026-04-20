@@ -1,9 +1,8 @@
-#include "scraperresultutils.h"
+#include "ozon_scraper/scraperresultutils.h"
 
 #include <algorithm>
 
 #include <QtGlobal>
-
 
 QVector<Product> ScraperResultUtils::computeTopProducts(const QVector<Product>& allProducts,
                                                         int minPoints,
@@ -40,7 +39,6 @@ QVector<Product> ScraperResultUtils::computeTopProducts(const QVector<Product>& 
 
     return topProducts;
 }
-
 
 QString ScraperResultUtils::formatElapsedText(qint64 elapsedMs)
 {

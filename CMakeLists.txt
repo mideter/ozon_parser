@@ -23,14 +23,14 @@ add_executable(ozon_radar
     ${SRC_DIR}/product.cpp
     ${SRC_DIR}/productmodel.h
     ${SRC_DIR}/productmodel.cpp
-    ${SRC_DIR}/productcardparser.h
-    ${SRC_DIR}/productcardparser.cpp
-    ${SRC_DIR}/fetcheventparser.h
-    ${SRC_DIR}/fetcheventparser.cpp
-    ${SRC_DIR}/scraperresultutils.h
-    ${SRC_DIR}/scraperresultutils.cpp
-    ${SRC_DIR}/ozonradarscraper.h
-    ${SRC_DIR}/ozonradarscraper.cpp
+    ${SRC_DIR}/ozon_scraper/productcardparser.h
+    ${SRC_DIR}/ozon_scraper/productcardparser.cpp
+    ${SRC_DIR}/ozon_scraper/fetcheventparser.h
+    ${SRC_DIR}/ozon_scraper/fetcheventparser.cpp
+    ${SRC_DIR}/ozon_scraper/scraperresultutils.h
+    ${SRC_DIR}/ozon_scraper/scraperresultutils.cpp
+    ${SRC_DIR}/ozon_scraper/ozonradarscraper.h
+    ${SRC_DIR}/ozon_scraper/ozonradarscraper.cpp
     ${SRC_DIR}/settingsservice.h
     ${SRC_DIR}/settingsservice.cpp
     qml.qrc

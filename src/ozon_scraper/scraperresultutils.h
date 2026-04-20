@@ -2,9 +2,8 @@
 
 #include "product.h"
 
-#include <QVector>
 #include <QString>
-
+#include <QVector>
 
 class ScraperResultUtils
 {

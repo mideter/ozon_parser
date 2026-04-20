@@ -1,7 +1,7 @@
-#include "ozonradarscraper.h"
-#include "fetcheventparser.h"
-#include "productcardparser.h"
-#include "scraperresultutils.h"
+#include "ozon_scraper/ozonradarscraper.h"
+#include "ozon_scraper/fetcheventparser.h"
+#include "ozon_scraper/productcardparser.h"
+#include "ozon_scraper/scraperresultutils.h"
 
 #include <optional>
 #include <QCoreApplication>
@@ -11,9 +11,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 
-
 namespace {
-
 
 QStringList parseUrlsFromMultiline(const QString& text)
 {
@@ -40,9 +38,7 @@ QStringList parseUrlsFromMultiline(const QString& text)
     return out;
 }
 
-
 } // namespace
-
 
 OzonRadarScraper::OzonRadarScraper()
     : process_(new QProcess(this))
@@ -52,12 +48,10 @@ OzonRadarScraper::OzonRadarScraper()
             this, &OzonRadarScraper::onProcessFinished);
 }
 
-
 OzonRadarScraper::~OzonRadarScraper()
 {
     stop();
 }
-
 
 QString OzonRadarScraper::resolveFetchScriptPath() const
 {
@@ -71,15 +65,14 @@ QString OzonRadarScraper::resolveFetchScriptPath() const
 
     if (QFileInfo::exists(p))
         return QDir::cleanPath(p);
-    
+
     p = QDir::currentPath() + "/scripts/ozon_fetch.py";
-    
+
     if (QFileInfo::exists(p))
         return p;
-    
+
     return QDir::cleanPath(QDir(appDir).filePath("../scripts/ozon_fetch.py"));
 }
-
 
 void OzonRadarScraper::start(const QString& urlStr, int minPoints, int maxPoints)
 {
@@ -126,12 +119,11 @@ void OzonRadarScraper::start(const QString& urlStr, int minPoints, int maxPoints
     }
 }
 
-
 void OzonRadarScraper::launchCurrentUrlFetch()
 {
     stdoutBuffer_.clear();
     const int total = allUrls_.size();
-    
+
     if (total > 1)
         emit statusChanged(QString("0/%1").arg(total), -1, 0);
     else
@@ -142,7 +134,6 @@ void OzonRadarScraper::launchCurrentUrlFetch()
     process_->start(pythonExe_, args);
 }
 
-
 void OzonRadarScraper::stop()
 {
     if (process_->state() != QProcess::NotRunning) {
@@ -151,18 +142,16 @@ void OzonRadarScraper::stop()
     }
 }
 
-
 void OzonRadarScraper::onProcessStdout()
 {
     appendStdout(process_->readAllStandardOutput());
 }
 
-
 void OzonRadarScraper::appendStdout(const QByteArray& chunk)
 {
     stdoutBuffer_.append(chunk);
     int pos = 0;
-    
+
     while ((pos = stdoutBuffer_.indexOf('\n')) != -1) {
         QByteArray line = stdoutBuffer_.left(pos).trimmed();
         stdoutBuffer_.remove(0, pos + 1);
@@ -171,7 +160,6 @@ void OzonRadarScraper::appendStdout(const QByteArray& chunk)
             handleJsonLine(line);
     }
 }
-
 
 void OzonRadarScraper::handleJsonLine(const QByteArray& line)
 {
@@ -196,7 +184,6 @@ void OzonRadarScraper::handleJsonLine(const QByteArray& line)
     }
 }
 
-
 void OzonRadarScraper::onProcessFinished(int exitCode, QProcess::ExitStatus status)
 {
     appendStdout(process_->readAllStandardOutput());
@@ -213,7 +200,6 @@ void OzonRadarScraper::onProcessFinished(int exitCode, QProcess::ExitStatus stat
     finishWithSuccess();
 }
 
-
 void OzonRadarScraper::onExtractResult(const QByteArray& json)
 {
     const QVector<Product> batch = parseProductsFromJson(json);
@@ -224,7 +210,7 @@ void OzonRadarScraper::onExtractResult(const QByteArray& json)
 
         if (seenUrls_.contains(u))
             continue;
-        
+
         seenUrls_.insert(u);
         allProducts_.append(p);
         added++;
@@ -243,7 +229,6 @@ void OzonRadarScraper::onExtractResult(const QByteArray& json)
     }
 }
 
-
 QVector<Product> OzonRadarScraper::parseProductsFromJson(const QByteArray& json)
 {
     QVector<Product> out;
@@ -258,7 +243,7 @@ QVector<Product> OzonRadarScraper::parseProductsFromJson(const QByteArray& json)
 
     for (const QJsonValue& v : arr) {
         const QJsonObject o = v.toObject();
-        
+
         const QString url = o.value("url").toString();
         const QString html = o.value("html").toString();
         const std::optional<ParsedTile> parsed = ParsedTile::parseHtml(html);
@@ -268,7 +253,7 @@ QVector<Product> OzonRadarScraper::parseProductsFromJson(const QByteArray& json)
 
         if (parsed->reviewPoints <= 0)
             continue;
-        
+
         QString shortName = parsed->name.trimmed();
 
         if (shortName.length() > 80)
@@ -276,10 +261,9 @@ QVector<Product> OzonRadarScraper::parseProductsFromJson(const QByteArray& json)
 
         out.append(Product(index++, shortName, parsed->price, parsed->reviewPoints, url));
     }
-    
+
     return out;
 }
-
 
 void OzonRadarScraper::finishWithError(const QString& message)
 {
@@ -291,7 +275,6 @@ void OzonRadarScraper::finishWithError(const QString& message)
     stdoutBuffer_.clear();
     emit finishedWithError(message);
 }
-
 
 void OzonRadarScraper::finishWithSuccess()
 {
@@ -305,4 +288,3 @@ void OzonRadarScraper::finishWithSuccess()
     emit topProductsUpdated(top, total);
     emit finishedSuccessfully(total, elapsed, urlSessionCount_);
 }
-
