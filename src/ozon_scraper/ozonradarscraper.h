@@ -30,18 +30,19 @@ signals:
     void finishedWithError(const QString& message);
 
 private slots:
-    void onProcessStdout(const QByteArray& chunk);
-    void onProcessFinished(int exitCode, QProcess::ExitStatus status, const QString& stderrText);
+    void onScrapingProcessStdout(const QByteArray& chunk);
+    void onScrapingProcessFinished(int exitCode, QProcess::ExitStatus status, const QString& stderrText);
 
 private:
-    void launchCurrentUrlFetch();
-    void handleFetchEvent(const FetchEvent& event);
-    void onExtractResult(const QByteArray& jsonArrayUtf8);
+    void startScraping();
+    void handleScrapingEvent(const FetchEvent& event);
+    void onScrapingBatchReceived(const QByteArray& jsonArrayUtf8);
+
     void finishWithError(const QString& message);
     void finishWithSuccess();
 
     PythonFetchProcessRunner processRunner_;
-    
+
     std::optional<FetchEventParser> fetchEventParser_;
     std::optional<ProductAccumulator> productAccumulator_;
 

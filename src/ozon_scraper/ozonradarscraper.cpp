@@ -11,9 +11,9 @@ OzonRadarScraper::OzonRadarScraper()
     : processRunner_{this}
 {
     connect(&processRunner_, &PythonFetchProcessRunner::stdoutChunk,
-            this, &OzonRadarScraper::onProcessStdout);
+            this, &OzonRadarScraper::onScrapingProcessStdout);
     connect(&processRunner_, &PythonFetchProcessRunner::finished,
-            this, &OzonRadarScraper::onProcessFinished);
+            this, &OzonRadarScraper::onScrapingProcessFinished);
 }
 
 
@@ -31,30 +31,29 @@ try {
 
     productAccumulator_ = ProductAccumulator{};
     fetchEventParser_ = FetchEventParser{};
-    elapsedTimer_.start();
 
-    launchCurrentUrlFetch();
+    startScraping();
 } 
 catch (const std::exception& ex) {
     emit finishedWithError(ex.what());
 }
 
 
-void OzonRadarScraper::launchCurrentUrlFetch()
-{
+void OzonRadarScraper::startScraping()
+try {
     const QStringList urls = settings_->urls();
     const int total = urls.size();
 
     if (total > 1)
-        emit statusChanged(QString("0/%1").arg(total), -1, 0);
+        emit statusChanged(QString("Загрузка страницы... (0/%1)").arg(total), -1, 0);
     else
         emit statusChanged("Загрузка страницы...", -1, 0);
 
-    try {
-        processRunner_.startFetch(urls);
-    } catch (const std::exception& ex) {
-        emit finishedWithError(QString::fromUtf8(ex.what()));
-    }
+    elapsedTimer_.start();
+    processRunner_.startFetch(urls);
+} 
+catch (const std::exception& ex) {
+    emit finishedWithError(QString::fromUtf8(ex.what()));
 }
 
 
@@ -65,19 +64,19 @@ void OzonRadarScraper::stop()
 }
 
 
-void OzonRadarScraper::onProcessStdout(const QByteArray& chunk)
+void OzonRadarScraper::onScrapingProcessStdout(const QByteArray& chunk)
 {
     const QVector<FetchEvent> events = fetchEventParser_->parseChunk(chunk);
     for (const FetchEvent& event : events)
-        handleFetchEvent(event);
+        handleScrapingEvent(event);
 }
 
 
-void OzonRadarScraper::handleFetchEvent(const FetchEvent& event)
+void OzonRadarScraper::handleScrapingEvent(const FetchEvent& event)
 {
     switch (event.type) {
     case FetchEvent::Type::Batch:
-        onExtractResult(event.batchJson);
+        onScrapingBatchReceived(event.batchJson);
         break;
     case FetchEvent::Type::Progress:
         if (event.totalUrls > 1)
@@ -87,7 +86,7 @@ void OzonRadarScraper::handleFetchEvent(const FetchEvent& event)
         finishWithError(event.errorMessage);
         break;
     case FetchEvent::Type::Done:
-        // Завершение — итог в onProcessFinished
+        // Завершение — итог в onScrapingProcessFinished
         break;
     case FetchEvent::Type::Invalid:
         break;
@@ -95,7 +94,7 @@ void OzonRadarScraper::handleFetchEvent(const FetchEvent& event)
 }
 
 
-void OzonRadarScraper::onProcessFinished(int exitCode, QProcess::ExitStatus status, const QString& stderrText)
+void OzonRadarScraper::onScrapingProcessFinished(int exitCode, QProcess::ExitStatus status, const QString& stderrText)
 {
     if (stopRequested_) {
         stopRequested_ = false;
@@ -115,7 +114,7 @@ void OzonRadarScraper::onProcessFinished(int exitCode, QProcess::ExitStatus stat
 }
 
 
-void OzonRadarScraper::onExtractResult(const QByteArray& json)
+void OzonRadarScraper::onScrapingBatchReceived(const QByteArray& json)
 {
     const QVector<Product> batch =
         BatchProductMapper::mapBatchJson(json, productAccumulator_->totalCount() + 1);
