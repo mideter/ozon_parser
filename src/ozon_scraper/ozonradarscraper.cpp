@@ -38,7 +38,6 @@ void OzonRadarScraper::start(const QString& urlStr, int minPoints, int maxPoints
     minPoints_ = minPoints;
     maxPoints_ = maxPoints;
     productAccumulator_.reset();
-    lastTableCount_ = 0;
     fetchEventParser_.reset();
     elapsedTimer_.start();
 
@@ -133,7 +132,6 @@ void OzonRadarScraper::onExtractResult(const QByteArray& json)
 
     if (addResult.addedCount > 0) {
         const int n = addResult.totalCount;
-        lastTableCount_ = n;
         const QVector<Product> top =
             ScraperResultUtils::computeTopProducts(productAccumulator_.allProducts(), minPoints_, maxPoints_);
         emit statusChanged(QStringLiteral("Найдено товаров: %1").arg(n), n, addResult.lastPrice);

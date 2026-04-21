@@ -47,7 +47,5 @@ private:
     int minPoints_ = -1;
     int maxPoints_ = -1;
     ProductAccumulator productAccumulator_;
-    int lastTableCount_ = 0;
-    int urlSessionCount_ = 1;
     bool stopRequested_ = false;
 };
