@@ -80,7 +80,7 @@ void OzonRadarScraper::handleScrapingEvent(const FetchEvent& event)
         break;
     case FetchEvent::Type::Progress:
         if (event.totalUrls > 1)
-            emit statusChanged(QStringLiteral("%1/%2").arg(event.processedUrls).arg(event.totalUrls), -1, 0);
+            emit statusChanged(QStringLiteral("Страница %1/%2").arg(event.processedUrls).arg(event.totalUrls), -1, 0);
         break;
     case FetchEvent::Type::Error:
         finishWithError(event.errorMessage);
