@@ -1,7 +1,6 @@
 #include "ozon_scraper/batchproductmapper.h"
 #include "ozon_scraper/ozonradarscraper.h"
 #include "ozon_scraper/scraperresultutils.h"
-#include "ozon_scraper/urlinputparser.h"
 
 #include <exception>
 
@@ -23,32 +22,27 @@ OzonRadarScraper::~OzonRadarScraper()
 
 
 void OzonRadarScraper::start(const QString& urlStr, int minPoints, int maxPoints)
-{
+try {
     stopRequested_ = false;
 
-    QStringList urls;
-    try {
-        urls = UrlInputParser::parseMultiline(urlStr);
-    } catch (const std::exception& ex) {
-        emit finishedWithError(ex.what());
-        return;
-    }
+    settings_ = OzonRadarScraperSettings(urlStr, minPoints, maxPoints);
 
-    allUrls_ = urls;
-    minPoints_ = minPoints;
-    maxPoints_ = maxPoints;
     productAccumulator_.reset();
     fetchEventParser_.reset();
     elapsedTimer_.start();
 
     launchCurrentUrlFetch();
+} 
+catch (const std::exception& ex) {
+    emit finishedWithError(ex.what());
 }
 
 
 void OzonRadarScraper::launchCurrentUrlFetch()
 {
     fetchEventParser_.reset();
-    const int total = allUrls_.size();
+    const QStringList urls = settings_->urls();
+    const int total = urls.size();
 
     if (total > 1)
         emit statusChanged(QString("0/%1").arg(total), -1, 0);
@@ -56,9 +50,8 @@ void OzonRadarScraper::launchCurrentUrlFetch()
         emit statusChanged("Загрузка страницы...", -1, 0);
 
     try {
-        processRunner_->startFetch(allUrls_);
+        processRunner_->startFetch(urls);
     } catch (const std::exception& ex) {
-        allUrls_.clear();
         emit finishedWithError(QString::fromUtf8(ex.what()));
     }
 }
@@ -105,7 +98,6 @@ void OzonRadarScraper::onProcessFinished(int exitCode, QProcess::ExitStatus stat
 {
     if (stopRequested_) {
         stopRequested_ = false;
-        allUrls_.clear();
         fetchEventParser_.reset();
         emit finishedWithError(QStringLiteral("Загрузка остановлена пользователем."));
         return;
@@ -119,7 +111,6 @@ void OzonRadarScraper::onProcessFinished(int exitCode, QProcess::ExitStatus stat
         return;
     }
 
-    allUrls_.clear();
     finishWithSuccess();
 }
 
@@ -133,7 +124,7 @@ void OzonRadarScraper::onExtractResult(const QByteArray& json)
     if (addResult.addedCount > 0) {
         const int n = addResult.totalCount;
         const QVector<Product> top =
-            ScraperResultUtils::computeTopProducts(productAccumulator_.allProducts(), minPoints_, maxPoints_);
+            ScraperResultUtils::computeTopProducts(productAccumulator_.allProducts(), settings_->minPoints(), settings_->maxPoints());
         emit statusChanged(QStringLiteral("Найдено товаров: %1").arg(n), n, addResult.lastPrice);
         emit topProductsUpdated(top, n);
     }
@@ -154,12 +145,12 @@ void OzonRadarScraper::finishWithSuccess()
 {
     stopRequested_ = false;
     const QVector<Product> top =
-        ScraperResultUtils::computeTopProducts(productAccumulator_.allProducts(), minPoints_, maxPoints_);
+        ScraperResultUtils::computeTopProducts(productAccumulator_.allProducts(), settings_->minPoints(), settings_->maxPoints());
     const int total = productAccumulator_.totalCount();
     const QString elapsed = ScraperResultUtils::formatElapsedText(elapsedTimer_.elapsed());
 
     fetchEventParser_.reset();
 
     emit topProductsUpdated(top, total);
-    emit finishedSuccessfully(total, elapsed, allUrls_.size());
+    emit finishedSuccessfully(total, elapsed, settings_->urls().size());
 }

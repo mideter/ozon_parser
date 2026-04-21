@@ -1,14 +1,15 @@
 #pragma once
 
 #include "ozon_scraper/fetcheventparser.h"
+#include "ozon_scraper/ozonradarscrapersettings.h"
 #include "ozon_scraper/pythonfetchprocessrunner.h"
 #include "ozon_scraper/productaccumulator.h"
 #include "product.h"
 
 #include <QElapsedTimer>
 #include <QObject>
-#include <QStringList>
 #include <QVector>
+#include <optional>
 
 
 class OzonRadarScraper : public QObject
@@ -42,10 +43,9 @@ private:
     PythonFetchProcessRunner* processRunner_ = nullptr;
     FetchEventParser fetchEventParser_;
     QElapsedTimer elapsedTimer_;
-
-    QStringList allUrls_;
-    int minPoints_ = -1;
-    int maxPoints_ = -1;
     ProductAccumulator productAccumulator_;
+
+    std::optional<OzonRadarScraperSettings> settings_;
+    
     bool stopRequested_ = false;
 };

@@ -25,8 +25,6 @@ add_executable(ozon_radar
     ${SRC_DIR}/productmodel.cpp
     ${SRC_DIR}/ozon_scraper/fetchscriptpathresolver.h
     ${SRC_DIR}/ozon_scraper/fetchscriptpathresolver.cpp
-    ${SRC_DIR}/ozon_scraper/urlinputparser.h
-    ${SRC_DIR}/ozon_scraper/urlinputparser.cpp
     ${SRC_DIR}/ozon_scraper/pythonfetchprocessrunner.h
     ${SRC_DIR}/ozon_scraper/pythonfetchprocessrunner.cpp
     ${SRC_DIR}/ozon_scraper/productaccumulator.h
@@ -39,6 +37,8 @@ add_executable(ozon_radar
     ${SRC_DIR}/ozon_scraper/fetcheventparser.cpp
     ${SRC_DIR}/ozon_scraper/scraperresultutils.h
     ${SRC_DIR}/ozon_scraper/scraperresultutils.cpp
+    ${SRC_DIR}/ozon_scraper/ozonradarscrapersettings.h
+    ${SRC_DIR}/ozon_scraper/ozonradarscrapersettings.cpp
     ${SRC_DIR}/ozon_scraper/ozonradarscraper.h
     ${SRC_DIR}/ozon_scraper/ozonradarscraper.cpp
     ${SRC_DIR}/settingsservice.h

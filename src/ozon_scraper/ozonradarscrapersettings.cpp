@@ -1,10 +1,38 @@
-#include "ozon_scraper/urlinputparser.h"
+#include "ozon_scraper/ozonradarscrapersettings.h"
 
 #include <QUrl>
 #include <stdexcept>
 
 
-QStringList UrlInputParser::parseMultiline(const QString& text)
+OzonRadarScraperSettings::OzonRadarScraperSettings(
+            const QString& urls,
+            int minPoints,
+            int maxPoints)
+    : urls_(parseUrls(urls))
+    , minPoints_(minPoints)
+    , maxPoints_(maxPoints)
+{}
+
+
+QStringList OzonRadarScraperSettings::urls() const
+{
+    return urls_;
+}
+
+
+int OzonRadarScraperSettings::maxPoints() const
+{
+    return maxPoints_;
+}
+
+
+int OzonRadarScraperSettings::minPoints() const
+{
+    return minPoints_;
+}
+
+
+QStringList OzonRadarScraperSettings::parseUrls(const QString& text)
 {
     QStringList out;
     const QStringList rawLines = text.split(QChar('\n'));
